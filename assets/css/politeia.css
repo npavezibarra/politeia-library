@@ -2,3 +2,7 @@
 .prs-table th, .prs-table td { padding:8px 10px; border-bottom:1px solid #eee; text-align:left; }
 .prs-btn { padding:8px 14px; border-radius:6px; background:#111; color:#fff; border:0; cursor:pointer; }
 .prs-form label { display:block; margin:8px 0; }
+
+.prs-notice { margin:12px 0; padding:10px 14px; border-radius:6px; }
+.prs-notice--success { border:1px solid #b6e6c9; background:#e8f7ee; }
+.prs-notice--error   { border:1px solid #f3b1b1; background:#fdecec; }

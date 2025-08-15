@@ -36,7 +36,15 @@ add_shortcode( 'politeia_start_reading', function( $atts = [] ) {
         }
     }
 
-    ob_start(); ?>
+    ob_start();
+
+    // Aviso de éxito (dentro del buffer del shortcode)
+    if ( ! empty($_GET['prs_session_saved']) && $_GET['prs_session_saved'] === '1' ) {
+        echo '<div class="prs-notice prs-notice--success">' .
+             esc_html__( 'Reading session saved.', 'politeia-reading' ) .
+             '</div>';
+    }
+    ?>
     <div class="prs-start-reading">
         <form id="prs-start-reading-form"
               class="prs-form"
@@ -51,7 +59,7 @@ add_shortcode( 'politeia_start_reading', function( $atts = [] ) {
             <label><?php _e('Book','politeia-reading'); ?>*
                 <select name="prs_book_id" <?php echo $selected_id ? 'disabled' : ''; ?> required>
                     <option value=""><?php _e('Choose a book…','politeia-reading'); ?></option>
-                    <?php foreach( (array) $my_books as $row ): ?>
+                    <?php foreach ( (array) $my_books as $row ): ?>
                         <option value="<?php echo (int) $row->book_id; ?>"
                             <?php selected( (int) $row->book_id, $selected_id ); ?>>
                             <?php echo esc_html( "{$row->title} — {$row->author}" ); ?>
@@ -119,7 +127,7 @@ function prs_save_session_handler() {
     $table_user_books = $wpdb->prefix . 'politeia_user_books';
     $owned = $wpdb->get_var( $wpdb->prepare("
         SELECT id FROM {$table_user_books} WHERE user_id=%d AND book_id=%d LIMIT 1
-    ", $user_id, $book_id) );
+    ", $user_id, $book_id ) );
 
     if ( ! $owned ) {
         wp_die( 'This book is not in your library.' );
