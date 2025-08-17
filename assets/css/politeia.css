@@ -6,3 +6,42 @@
 .prs-notice { margin:12px 0; padding:10px 14px; border-radius:6px; }
 .prs-notice--success { border:1px solid #b6e6c9; background:#e8f7ee; }
 .prs-notice--error   { border:1px solid #f3b1b1; background:#fdecec; }
+
+.prs-book-fixed {
+    display: none;
+}
+
+/* Inline contact form under Owning Status */
+.prs-contact-form{
+    display: grid;
+    grid-template-columns: 120px minmax(240px, 1fr);
+    gap: 10px 12px;               /* row-gap / column-gap */
+    max-width: 600px;
+    margin: 10px 0 0 10px;
+  }
+  .prs-contact-label{
+    align-self: center;
+    font-weight: 600;
+  }
+  .prs-contact-input{
+    width: 100%;
+  }
+  .prs-contact-actions{
+    grid-column: 2;               /* tercera fila, bajo los inputs */
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .prs-contact-status{ color:#555; }
+  
+  /* Responsive: apilar en mobile */
+  @media (max-width: 720px){
+    .prs-contact-form{
+      grid-template-columns: 1fr;
+      margin-left: 0;
+    }
+    .prs-contact-actions{
+      grid-column: 1;
+    }
+  }
+  

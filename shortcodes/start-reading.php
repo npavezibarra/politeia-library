@@ -31,8 +31,18 @@ add_shortcode( 'politeia_start_reading', function( $atts = [] ) {
     if ( $selected_id ) {
         $owned_ids = array_map( 'intval', wp_list_pluck( (array) $my_books, 'book_id' ) );
         if ( ! in_array( $selected_id, $owned_ids, true ) ) {
-            // Si no es suyo, ignoramos el preseleccionado
             $selected_id = 0;
+        }
+    }
+
+    // Etiqueta legible del libro seleccionado (si ocultamos el select)
+    $selected_label = '';
+    if ( $selected_id ) {
+        foreach ( (array) $my_books as $row ) {
+            if ( (int) $row->book_id === $selected_id ) {
+                $selected_label = "{$row->title} — {$row->author}";
+                break;
+            }
         }
     }
 
@@ -56,21 +66,25 @@ add_shortcode( 'politeia_start_reading', function( $atts = [] ) {
             <input type="hidden" name="prs_end_time" id="prs_end_time" value="" />
             <input type="hidden" name="prs_elapsed" id="prs_elapsed" value="" />
 
-            <label><?php _e('Book','politeia-reading'); ?>*
-                <select name="prs_book_id" <?php echo $selected_id ? 'disabled' : ''; ?> required>
-                    <option value=""><?php _e('Choose a book…','politeia-reading'); ?></option>
-                    <?php foreach ( (array) $my_books as $row ): ?>
-                        <option value="<?php echo (int) $row->book_id; ?>"
-                            <?php selected( (int) $row->book_id, $selected_id ); ?>>
-                            <?php echo esc_html( "{$row->title} — {$row->author}" ); ?>
-                        </option>
-                    <?php endforeach; ?>
-                </select>
-            </label>
-
             <?php if ( $selected_id ): ?>
-                <!-- El select está disabled, así que enviamos el valor con un hidden -->
+                <!-- Solo texto + hidden cuando hay book_id -->
+                <div class="prs-book-fixed">
+                    <span class="prs-label"><?php _e('Book', 'politeia-reading'); ?>*</span>
+                    <div class="prs-value"><?php echo esc_html( $selected_label ); ?></div>
+                </div>
                 <input type="hidden" name="prs_book_id" value="<?php echo (int) $selected_id; ?>" />
+            <?php else: ?>
+                <!-- Selector normal cuando NO hay book_id -->
+                <label><?php _e('Book','politeia-reading'); ?>*
+                    <select name="prs_book_id" required>
+                        <option value=""><?php _e('Choose a book…','politeia-reading'); ?></option>
+                        <?php foreach ( (array) $my_books as $row ): ?>
+                            <option value="<?php echo (int) $row->book_id; ?>">
+                                <?php echo esc_html( "{$row->title} — {$row->author}" ); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </label>
             <?php endif; ?>
 
             <label><?php _e('Start Page','politeia-reading'); ?>*

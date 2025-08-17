@@ -79,3 +79,30 @@ function prs_handle_cover_upload( $field_name = 'prs_cover' ) {
     wp_update_attachment_metadata( $attach_id, $attach_data );
     return (int) $attach_id;
 }
+
+function prs_maybe_alter_user_books() {
+    global $wpdb;
+    $t = $wpdb->prefix . 'politeia_user_books';
+
+    $cols = $wpdb->get_col( $wpdb->prepare(
+        "SELECT COLUMN_NAME FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA=%s AND TABLE_NAME=%s",
+        DB_NAME, $t
+    ));
+    $has = array_map('strtolower', (array)$cols);
+
+    $alters = [];
+    if ( !in_array('pages', $has, true) )               $alters[] = "ADD COLUMN pages INT UNSIGNED NULL AFTER owning_status";
+    if ( !in_array('purchase_date', $has, true) )       $alters[] = "ADD COLUMN purchase_date DATE NULL";
+    if ( !in_array('purchase_channel', $has, true) )    $alters[] = "ADD COLUMN purchase_channel ENUM('online','store') NULL";
+    if ( !in_array('purchase_place', $has, true) )      $alters[] = "ADD COLUMN purchase_place VARCHAR(255) NULL";
+    if ( !in_array('counterparty_name', $has, true) )   $alters[] = "ADD COLUMN counterparty_name VARCHAR(255) NULL";
+    if ( !in_array('counterparty_email', $has, true) )  $alters[] = "ADD COLUMN counterparty_email VARCHAR(190) NULL";
+
+    if ( $alters ) {
+        $wpdb->query( "ALTER TABLE {$t} " . implode(', ', $alters) );
+    }
+}
+add_action('plugins_loaded', 'prs_maybe_alter_user_books');
+
+

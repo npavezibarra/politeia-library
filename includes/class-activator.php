@@ -38,7 +38,12 @@ class Politeia_Reading_Activator {
             book_id BIGINT UNSIGNED NOT NULL,
             reading_status ENUM('not_started','started','finished') NOT NULL DEFAULT 'not_started',
             owning_status  ENUM('in_shelf','lost','borrowed','borrowing','sold') NOT NULL DEFAULT 'in_shelf',
+            pages INT UNSIGNED NULL,
+            purchase_date DATE NULL,
+            purchase_channel ENUM('online','store') NULL,
             purchase_place VARCHAR(255) NULL,
+            counterparty_name  VARCHAR(255) NULL,
+            counterparty_email VARCHAR(190) NULL,
             language VARCHAR(50) NULL,
             notes TEXT NULL,
             created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -47,7 +52,7 @@ class Politeia_Reading_Activator {
             UNIQUE KEY uniq_user_book (user_id, book_id),
             KEY idx_user (user_id),
             KEY idx_book (book_id)
-        ) {$charset_collate};";
+        ) {$charset_collate};";             
 
         // 3) Reading sessions (events)
         $sql_sessions = "CREATE TABLE {$sessions_table} (
