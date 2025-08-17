@@ -14,6 +14,7 @@ class Politeia_Reading_Activator {
         $books_table      = $wpdb->prefix . 'politeia_books';
         $user_books_table = $wpdb->prefix . 'politeia_user_books';
         $sessions_table   = $wpdb->prefix . 'politeia_reading_sessions';
+        $loans_table      = $wpdb->prefix . 'politeia_loans';
 
         // 1) Canonical books table
         $sql_books = "CREATE TABLE {$books_table} (
@@ -52,7 +53,23 @@ class Politeia_Reading_Activator {
             UNIQUE KEY uniq_user_book (user_id, book_id),
             KEY idx_user (user_id),
             KEY idx_book (book_id)
-        ) {$charset_collate};";             
+        ) {$charset_collate};";   
+
+        $sql_loans = "CREATE TABLE {$loans_table} (
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+        user_id BIGINT UNSIGNED NOT NULL,
+        book_id BIGINT UNSIGNED NOT NULL,
+        counterparty_name  VARCHAR(255) NULL,
+        counterparty_email VARCHAR(190) NULL,
+        start_date DATETIME NOT NULL,
+        end_date   DATETIME NULL,
+        notes TEXT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (id),
+        KEY idx_user_book (user_id, book_id),
+        KEY idx_active (user_id, book_id, end_date)
+        ) {$charset_collate};";
 
         // 3) Reading sessions (events)
         $sql_sessions = "CREATE TABLE {$sessions_table} (
@@ -74,6 +91,7 @@ class Politeia_Reading_Activator {
         dbDelta( $sql_books );
         dbDelta( $sql_user_books );
         dbDelta( $sql_sessions );
+        dbDelta( $sql_loans );
 
         // Store/advance DB version
         if ( get_option( 'politeia_reading_db_version' ) === false ) {

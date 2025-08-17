@@ -105,4 +105,46 @@ function prs_maybe_alter_user_books() {
 }
 add_action('plugins_loaded', 'prs_maybe_alter_user_books');
 
+function prs_maybe_create_loans_table() {
+    global $wpdb;
+    $table = $wpdb->prefix . 'politeia_loans';
 
+    $exists = $wpdb->get_var( $wpdb->prepare(
+        "SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=%s AND TABLE_NAME=%s",
+        DB_NAME, $table
+    ) );
+
+    if ( ! $exists ) {
+        require_once ABSPATH . 'wp-admin/includes/upgrade.php';
+        $charset_collate = $wpdb->get_charset_collate();
+        $sql = "CREATE TABLE {$table} (
+          id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+          user_id BIGINT UNSIGNED NOT NULL,
+          book_id BIGINT UNSIGNED NOT NULL,
+          counterparty_name  VARCHAR(255) NULL,
+          counterparty_email VARCHAR(190) NULL,
+          start_date DATETIME NOT NULL,
+          end_date   DATETIME NULL,
+          notes TEXT NULL,
+          created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          PRIMARY KEY (id),
+          KEY idx_user_book (user_id, book_id),
+          KEY idx_active (user_id, book_id, end_date)
+        ) {$charset_collate};";
+        dbDelta($sql);
+    }
+}
+add_action('plugins_loaded', 'prs_maybe_create_loans_table');
+
+// Devuelve el start_date (GMT) del loan activo o null
+function prs_get_active_loan_start_date( $user_id, $book_id ) {
+    global $wpdb;
+    $t = $wpdb->prefix . 'politeia_loans';
+    return $wpdb->get_var( $wpdb->prepare(
+        "SELECT start_date FROM {$t}
+         WHERE user_id=%d AND book_id=%d AND end_date IS NULL
+         ORDER BY id DESC LIMIT 1",
+        $user_id, $book_id
+    ) );
+}

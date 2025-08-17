@@ -1,7 +1,6 @@
 (function () {
   if (typeof PRS_BOOK === 'undefined') return;
 
-  /* -------------------- helpers -------------------- */
   const ajax = (payload) =>
     fetch(PRS_BOOK.ajax_url, {
       method: 'POST',
@@ -18,260 +17,252 @@
       ),
     }).then((r) => r.json());
 
-  const show = (el, on) => {
-    if (!el) return;
-    el.style.display = on ? 'inline-block' : 'none';
+  const q = (sel) => document.querySelector(sel);
+
+  const needsContact = (value) =>
+    ['borrowed', 'borrowing', 'sold'].indexOf(String(value || '')) !== -1;
+
+  const fmtServerDateOrLocal = (res) => {
+    if (res && res.success && res.data && res.data.loan_start_date) {
+      return res.data.loan_start_date;
+    }
+    try {
+      return new Date().toLocaleDateString();
+    } catch (_) {
+      return '';
+    }
   };
 
-  const setText = (el, txt) => {
-    if (el) el.textContent = txt;
-  };
-
-  const needsContact = (v) =>
-    v === 'borrowed' || v === 'borrowing' || v === 'sold';
-
-  /* -------------------- Pages inline -------------------- */
+  /* ------------------------------- Pages ------------------------------- */
   (function () {
-    const view = document.getElementById('pages-view');
-    const edit = document.getElementById('pages-edit');
-    const form = document.getElementById('pages-form');
-    const input = document.getElementById('pages-input');
-    const save = document.getElementById('pages-save');
-    const cancel = document.getElementById('pages-cancel');
-    const status = document.getElementById('pages-status');
-    if (!view || !edit || !form) return;
+    const view = q('#pages-view');
+    const edit = q('#pages-edit');
+    const form = q('#pages-form');
+    const input = q('#pages-input');
+    const save = q('#pages-save');
+    const cancel = q('#pages-cancel');
+    const status = q('#pages-status');
+    if (!view || !edit) return;
 
-    const toggle = (f) => {
-      show(form, f);
-      edit.style.display = f ? 'none' : 'inline';
-      if (f && input) input.focus();
+    const show = (on) => {
+      form.style.display = on ? 'inline-block' : 'none';
+      edit.style.display = on ? 'none' : 'inline';
     };
 
     edit.addEventListener('click', (e) => {
       e.preventDefault();
-      toggle(true);
+      show(true);
+      input && input.focus();
     });
 
     cancel.addEventListener('click', () => {
-      toggle(false);
-      setText(status, '');
+      show(false);
+      status.textContent = '';
     });
 
     save.addEventListener('click', async () => {
       const pages = parseInt(input.value, 10);
       if (!pages || pages < 1) {
-        setText(status, 'Enter a positive number');
+        status.textContent = 'Enter a positive number';
         return;
       }
-      setText(status, 'Saving...');
+      status.textContent = 'Saving...';
       const res = await ajax({ pages });
       if (res && res.success) {
-        setText(view, String(res.data.pages || '—'));
-        setText(status, 'Saved ✓');
+        view.textContent = String(res.data.pages || '—');
+        status.textContent = 'Saved ✓';
         setTimeout(() => {
-          setText(status, '');
-          toggle(false);
+          status.textContent = '';
+          show(false);
         }, 600);
       } else {
-        setText(status, 'Error');
+        status.textContent = 'Error';
       }
     });
-
-    // Enter/ESC accesibilidad
-    input &&
-      input.addEventListener('keydown', (ev) => {
-        if (ev.key === 'Enter') {
-          ev.preventDefault();
-          save.click();
-        } else if (ev.key === 'Escape') {
-          ev.preventDefault();
-          cancel.click();
-        }
-      });
   })();
 
-  /* -------------------- Purchase Date -------------------- */
+  /* --------------------------- Purchase Date --------------------------- */
   (function () {
-    const v = document.getElementById('purchase-date-view');
-    const e = document.getElementById('purchase-date-edit');
-    const f = document.getElementById('purchase-date-form');
-    const i = document.getElementById('purchase-date-input');
-    const s = document.getElementById('purchase-date-save');
-    const c = document.getElementById('purchase-date-cancel');
-    const st = document.getElementById('purchase-date-status');
-    if (!e || !f) return;
+    const v = q('#purchase-date-view');
+    const e = q('#purchase-date-edit');
+    const f = q('#purchase-date-form');
+    const i = q('#purchase-date-input');
+    const s = q('#purchase-date-save');
+    const c = q('#purchase-date-cancel');
+    const st = q('#purchase-date-status');
+    if (!e) return;
 
-    const toggle = (on) => {
-      show(f, on);
+    const show = (on) => {
+      f.style.display = on ? 'inline-block' : 'none';
       e.style.display = on ? 'none' : 'inline';
-      if (on && i) i.focus();
     };
 
     e.addEventListener('click', (ev) => {
       ev.preventDefault();
-      toggle(true);
+      show(true);
+      i && i.focus();
     });
 
     c.addEventListener('click', () => {
-      toggle(false);
-      setText(st, '');
+      show(false);
+      st.textContent = '';
     });
 
     s.addEventListener('click', async () => {
-      const d = i.value; // YYYY-MM-DD
-      setText(st, 'Saving...');
-      const res = await ajax({ purchase_date: d });
+      const purchase_date = i.value || '';
+      st.textContent = 'Saving...';
+      const res = await ajax({ purchase_date });
       if (res && res.success) {
-        setText(v, res.data.purchase_date || '—');
-        setText(st, 'Saved ✓');
+        v.textContent = res.data.purchase_date || '—';
+        st.textContent = 'Saved ✓';
         setTimeout(() => {
-          setText(st, '');
-          toggle(false);
+          st.textContent = '';
+          show(false);
         }, 600);
       } else {
-        setText(st, 'Error');
+        st.textContent = 'Error';
       }
     });
-
-    i &&
-      i.addEventListener('keydown', (ev) => {
-        if (ev.key === 'Enter') {
-          ev.preventDefault();
-          s.click();
-        } else if (ev.key === 'Escape') {
-          ev.preventDefault();
-          c.click();
-        }
-      });
   })();
 
-  /* ------------- Purchase Channel + Place (Which?) ------------- */
+  /* -------------------- Purchase Channel + Which? ---------------------- */
   (function () {
-    const v = document.getElementById('purchase-channel-view');
-    const e = document.getElementById('purchase-channel-edit');
-    const f = document.getElementById('purchase-channel-form');
-    const sel = document.getElementById('purchase-channel-select');
-    const plc = document.getElementById('purchase-place-input');
-    const s = document.getElementById('purchase-channel-save');
-    const c = document.getElementById('purchase-channel-cancel');
-    const st = document.getElementById('purchase-channel-status');
-    if (!e || !f) return;
+    const v = q('#purchase-channel-view');
+    const e = q('#purchase-channel-edit');
+    const f = q('#purchase-channel-form');
+    const sel = q('#purchase-channel-select');
+    const plc = q('#purchase-place-input');
+    const s = q('#purchase-channel-save');
+    const c = q('#purchase-channel-cancel');
+    const st = q('#purchase-channel-status');
+    if (!e) return;
 
-    const toggle = (on) => {
-      show(f, on);
+    const show = (on) => {
+      f.style.display = on ? 'inline-block' : 'none';
       e.style.display = on ? 'none' : 'inline';
-      if (on) (sel && sel.value ? plc : sel).focus();
-      togglePlaceField();
     };
 
-    const togglePlaceField = () => {
-      // “Which?” aparece solo si hay canal seleccionado
+    e.addEventListener('click', (ev) => {
+      ev.preventDefault();
+      show(true);
+      (sel.value ? plc : sel).focus();
+    });
+
+    c.addEventListener('click', () => {
+      show(false);
+      st.textContent = '';
+    });
+
+    sel && sel.addEventListener('change', () => {
       if (!plc) return;
-      plc.style.display = sel && sel.value ? 'inline-block' : 'none';
-    };
-
-    e.addEventListener('click', (ev) => {
-      ev.preventDefault();
-      toggle(true);
+      plc.style.display = sel.value ? 'inline-block' : 'none';
+      if (sel.value) plc.focus();
     });
-
-    c.addEventListener('click', () => {
-      toggle(false);
-      setText(st, '');
-    });
-
-    sel && sel.addEventListener('change', togglePlaceField);
 
     s.addEventListener('click', async () => {
-      const ch = sel ? sel.value || '' : '';
-      const wh = plc ? plc.value || '' : '';
-      setText(st, 'Saving...');
-      const res = await ajax({ purchase_channel: ch, purchase_place: wh });
+      const purchase_channel = sel.value || '';
+      const purchase_place = plc ? plc.value || '' : '';
+      st.textContent = 'Saving...';
+      const res = await ajax({ purchase_channel, purchase_place });
       if (res && res.success) {
-        let label = res.data.purchase_channel
-          ? res.data.purchase_channel.charAt(0).toUpperCase() +
-            res.data.purchase_channel.slice(1)
-          : '—';
-        if (res.data.purchase_channel && (res.data.purchase_place || '').length) {
-          label += ' — ' + res.data.purchase_place;
+        let label = '—';
+        if (res.data.purchase_channel) {
+          label =
+            res.data.purchase_channel.charAt(0).toUpperCase() +
+            res.data.purchase_channel.slice(1);
+          if (res.data.purchase_place) label += ' — ' + res.data.purchase_place;
         }
-        setText(v, label);
-        setText(st, 'Saved ✓');
+        v.textContent = label;
+        st.textContent = 'Saved ✓';
         setTimeout(() => {
-          setText(st, '');
-          toggle(false);
+          st.textContent = '';
+          show(false);
         }, 600);
       } else {
-        setText(st, 'Error');
+        st.textContent = 'Error';
       }
     });
   })();
 
-  /* ------------- Reading / Owning + Contact (Name/Email) ------------- */
+  /* ---------------- Reading / Owning Status selects -------------------- */
   (function () {
-    const rs = document.getElementById('reading-status-select');
-    const os = document.getElementById('owning-status-select');
-    const rss = document.getElementById('reading-status-status');
-    const oss = document.getElementById('owning-status-status');
+    const rs = q('#reading-status-select');
+    const os = q('#owning-status-select');
+    const rss = q('#reading-status-status');
+    const oss = q('#owning-status-status');
 
-    const contactWrap = document.getElementById('owning-contact-form');
-    const contactName = document.getElementById('owning-contact-name');
-    const contactEmail = document.getElementById('owning-contact-email');
-    const contactSave = document.getElementById('owning-contact-save');
-    const contactStatus = document.getElementById('owning-contact-status');
-    const contactView = document.getElementById('owning-contact-view');
+    const contactForm = q('#owning-contact-form');
+    const contactName = q('#owning-contact-name');
+    const contactEmail = q('#owning-contact-email');
+    const contactSave = q('#owning-contact-save');
+    const contactStatus = q('#owning-contact-status');
+    const contactView = q('#owning-contact-view');
 
-    const toggleContact = (v) => {
-      if (!contactWrap) return;
-      contactWrap.style.display = needsContact(v) ? 'block' : 'none';
+    const toggleContact = (value) => {
+      if (!contactForm) return;
+      contactForm.style.display = needsContact(value) ? 'block' : 'none';
+      if (!needsContact(value) && contactView) {
+        contactView.textContent = '';
+      }
     };
 
     if (rs) {
       rs.addEventListener('change', async () => {
-        setText(rss, 'Saving...');
+        rss.textContent = 'Saving...';
         const res = await ajax({ reading_status: rs.value });
-        setText(rss, res && res.success ? 'Saved ✓' : 'Error');
-        setTimeout(() => setText(rss, ''), 700);
+        rss.textContent = res && res.success ? 'Saved ✓' : 'Error';
+        setTimeout(() => {
+          rss.textContent = '';
+        }, 700);
       });
     }
 
     if (os) {
-      // inicial
-      toggleContact(os.value);
-
       os.addEventListener('change', async () => {
+        oss.textContent = 'Saving...';
         const value = os.value;
-        setText(oss, 'Saving...');
         const res = await ajax({ owning_status: value });
-        setText(oss, res && res.success ? 'Saved ✓' : 'Error');
-        setTimeout(() => setText(oss, ''), 700);
+        oss.textContent = res && res.success ? 'Saved ✓' : 'Error';
+        setTimeout(() => {
+          oss.textContent = '';
+        }, 700);
 
         toggleContact(value);
-        // Si cambia a un estado que no requiere contacto, limpiar la vista
-        if (!needsContact(value) && contactView) {
-          setText(contactView, '');
+
+        if (needsContact(value) && contactView) {
+          const dateLabel = fmtServerDateOrLocal(res);
+          if (!contactView.textContent || !contactView.textContent.includes(dateLabel)) {
+            const base = contactView.textContent.trim();
+            contactView.textContent = base ? base + ' · ' + dateLabel : dateLabel;
+          }
         }
       });
     }
 
     if (contactSave) {
       contactSave.addEventListener('click', async () => {
-        setText(contactStatus, 'Saving...');
         const payload = {
           counterparty_name: contactName ? contactName.value || '' : '',
           counterparty_email: contactEmail ? contactEmail.value || '' : '',
+          owning_effective_date: new Date().toISOString().slice(0, 10), // 👈 ESTA LÍNEA ES LA CLAVE
         };
+        contactStatus.textContent = 'Saving...';
         const res = await ajax(payload);
         if (res && res.success) {
           let txt = '';
           if (payload.counterparty_name) txt += payload.counterparty_name;
-          if (payload.counterparty_email)
+          if (payload.counterparty_email) {
             txt += (txt ? ' · ' : '') + payload.counterparty_email;
-          if (contactView) setText(contactView, txt);
-          setText(contactStatus, 'Saved ✓');
-          setTimeout(() => setText(contactStatus, ''), 700);
+          }
+          const dateLabel = fmtServerDateOrLocal(res);
+          if (dateLabel) txt += (txt ? ' · ' : '') + dateLabel;
+          if (contactView) contactView.textContent = txt;
+          contactStatus.textContent = 'Saved ✓';
+          setTimeout(() => {
+            contactStatus.textContent = '';
+          }, 700);
         } else {
-          setText(contactStatus, 'Error');
+          contactStatus.textContent = 'Error';
         }
       });
     }
