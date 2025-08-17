@@ -44,4 +44,7 @@
       grid-column: 1;
     }
   }
-  
+
+button#owning-contact-save {
+    margin-top: 15px;
+}

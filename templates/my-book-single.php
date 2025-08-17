@@ -11,10 +11,10 @@ global $wpdb;
 $user_id = get_current_user_id();
 $slug    = get_query_var('prs_book_slug');
 
-$tbl_b  = $wpdb->prefix . 'politeia_books';
-$tbl_ub = $wpdb->prefix . 'politeia_user_books';
-$tbl_rs = $wpdb->prefix . 'politeia_reading_sessions';
-$tbl_loans = $wpdb->prefix . 'politeia_loans';
+$tbl_b    = $wpdb->prefix . 'politeia_books';
+$tbl_ub   = $wpdb->prefix . 'politeia_user_books';
+$tbl_rs   = $wpdb->prefix . 'politeia_reading_sessions';
+$tbl_loans= $wpdb->prefix . 'politeia_loans';
 
 $book = $wpdb->get_row( $wpdb->prepare("SELECT * FROM {$tbl_b} WHERE slug=%s LIMIT 1", $slug) );
 if ( ! $book ) { status_header(404); echo '<div class="wrap"><h1>Not found</h1></div>'; get_footer(); exit; }
@@ -22,6 +22,10 @@ if ( ! $book ) { status_header(404); echo '<div class="wrap"><h1>Not found</h1><
 $ub = $wpdb->get_row( $wpdb->prepare("SELECT * FROM {$tbl_ub} WHERE user_id=%d AND book_id=%d LIMIT 1", $user_id, $book->id) );
 if ( ! $ub ) { status_header(403); echo '<div class="wrap"><h1>No access</h1><p>This book is not in your library.</p></div>'; get_footer(); exit; }
 
+/** === contacto ya guardado (DEFINIDO ANTES DE LOCALIZE) === */
+$has_contact = ( ! empty($ub->counterparty_name) ) || ( ! empty($ub->counterparty_email) );
+
+/** === sesiones === */
 $sessions = $wpdb->get_results( $wpdb->prepare("
   SELECT id, start_time, end_time, start_page, end_page, chapter_name
   FROM {$tbl_rs}
@@ -29,7 +33,7 @@ $sessions = $wpdb->get_results( $wpdb->prepare("
   ORDER BY start_time DESC
 ", $user_id, $book->id) );
 
-// Fecha (local) del préstamo activo, si lo hay
+/** === préstamo activo (fecha local) === */
 $active_start_gmt = $wpdb->get_var( $wpdb->prepare(
   "SELECT start_date FROM {$tbl_loans}
    WHERE user_id=%d AND book_id=%d AND end_date IS NULL
@@ -44,12 +48,14 @@ function prs_hms($sec){
 }
 $total_pages = 0; $total_seconds = 0;
 
-// Encolar JS para inline edit (IDs esperados por assets/js/my-book.js)
+/** === assets === */
 wp_enqueue_script( 'politeia-my-book' );
 wp_localize_script( 'politeia-my-book', 'PRS_BOOK', [
-  'ajax_url'     => admin_url('admin-ajax.php'),
-  'nonce'        => wp_create_nonce('prs_update_user_book_meta'),
-  'user_book_id' => (int) $ub->id,
+  'ajax_url'      => admin_url('admin-ajax.php'),
+  'nonce'         => wp_create_nonce('prs_update_user_book_meta'),
+  'user_book_id'  => (int) $ub->id,
+  'has_contact'   => $has_contact ? 1 : 0,               // ← ahora sí definido
+  'owning_status' => (string) $ub->owning_status,
 ] );
 wp_enqueue_style( 'politeia-reading' );
 ?>
@@ -95,7 +101,7 @@ wp_enqueue_style( 'politeia-reading' );
     grid-template-columns: 120px minmax(240px, 1fr);
     gap: 10px 12px;
     max-width: 600px;
-    margin: 10px 0 0 10px;
+    margin: 0px !important;
   }
   .prs-contact-label{ align-self: center; font-weight: 600; }
   .prs-contact-input{ width: 100%; }
@@ -216,7 +222,7 @@ wp_enqueue_style( 'politeia-reading' );
         <span id="owning-status-status" class="prs-help" style="margin-left:8px;"></span>
 
         <?php
-          $needs_contact = in_array( $ub->owning_status, ['borrowed','borrowing','sold'], true );
+          $needs_contact = in_array($ub->owning_status, ['borrowed','borrowing','sold'], true) && ! $has_contact;
         ?>
         <div id="owning-contact-form" class="prs-contact-form" style="display: <?php echo $needs_contact ? 'block' : 'none'; ?>;">
           <label for="owning-contact-name" class="prs-contact-label"><?php esc_html_e('Name','politeia-reading'); ?></label>

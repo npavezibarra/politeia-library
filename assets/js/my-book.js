@@ -268,3 +268,153 @@
     }
   })();
 })();
+
+
+/* global PRS_BOOK */
+document.addEventListener('DOMContentLoaded', () => {
+  const NEEDS = new Set(['borrowed','borrowing','sold']);
+
+  const $status  = document.getElementById('owning-status-select');
+  const $form    = document.getElementById('owning-contact-form');
+  const $name    = document.getElementById('owning-contact-name');
+  const $email   = document.getElementById('owning-contact-email');
+  const $saveBtn = document.getElementById('owning-contact-save');
+  const $msg     = document.getElementById('owning-contact-status');
+  const $view    = document.getElementById('owning-contact-view');
+
+  // --- helpers ---
+  function showForm(show) {
+    if (!$form) return;
+    $form.style.display = show ? 'block' : 'none';
+    $form.setAttribute('aria-hidden', show ? 'false' : 'true');
+  }
+
+  function setMsg(text) { if ($msg) $msg.textContent = text || ''; }
+
+  // ¿Ya hay contacto guardado?
+  function hasContact() {
+    if (typeof PRS_BOOK !== 'undefined' && 'has_contact' in PRS_BOOK) {
+      return !!Number(PRS_BOOK.has_contact);
+    }
+    // Fallback: deduce por los inputs/visualización
+    const n = ($name?.value || '').trim();
+    const e = ($email?.value || '').trim();
+    const v = ($view?.textContent || '').trim();
+    return !!(n || e || v);
+  }
+
+  // Guarda un campo simple
+  async function saveField(field, value) {
+    const body = new URLSearchParams({
+      action: 'prs_update_user_book_meta',
+      nonce: PRS_BOOK.nonce,
+      user_book_id: PRS_BOOK.user_book_id,
+      field,
+      value
+    });
+    const res = await fetch(PRS_BOOK.ajax_url, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},
+      body
+    });
+    return res.json();
+  }
+
+  // Guarda contacto (nombre + email)
+  async function saveContact(name, email) {
+    const body = new URLSearchParams({
+      action: 'prs_update_user_book_meta',
+      nonce: PRS_BOOK.nonce,
+      user_book_id: PRS_BOOK.user_book_id,
+      field: 'contact',
+      counterparty_name: name,
+      counterparty_email: email
+    });
+    const res = await fetch(PRS_BOOK.ajax_url, {
+      method: 'POST',
+      credentials: 'same-origin',
+      headers: {'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},
+      body
+    });
+    return res.json();
+  }
+
+  // Muestra/oculta según estado.
+  // fromChange=true => el usuario cambió el dropdown: siempre mostrar si requiere contacto (para editar/crear).
+  // fromChange=false => carga inicial: mostrar sólo si requiere contacto Y NO hay contacto guardado.
+  function toggleByStatus(fromChange = false) {
+    const v = ($status?.value || '').trim();
+    if (fromChange) {
+      showForm(NEEDS.has(v));
+    } else {
+      showForm(NEEDS.has(v) && !hasContact());
+    }
+  }
+
+  // --- eventos ---
+  if ($status) {
+    $status.addEventListener('change', async () => {
+      const val = $status.value;
+      setMsg('Saving…');
+      try {
+        const out = await saveField('owning_status', val);
+        if (out?.success) {
+          setMsg('Saved');
+          // Si no requiere contacto, oculta; si requiere, muéstralo (para crear/editar)
+          toggleByStatus(true);
+          if (!NEEDS.has(val)) showForm(false);
+        } else {
+          setMsg(out?.message || 'Error');
+        }
+      } catch {
+        setMsg('Error');
+      }
+    });
+  }
+
+  if ($saveBtn) {
+    // Guardar con click
+    $saveBtn.addEventListener('click', onSaveContact);
+    // Guardar con Enter en inputs
+    [$name, $email].forEach($el => {
+      $el?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          onSaveContact();
+        }
+      });
+    });
+  }
+
+  async function onSaveContact() {
+    const name  = ($name?.value || '').trim();
+    const email = ($email?.value || '').trim();
+    setMsg('Saving…');
+    $saveBtn?.setAttribute('disabled', 'disabled');
+    try {
+      const out = await saveContact(name, email);
+      if (out?.success) {
+        // Actualiza vista y marca que ya hay contacto
+        const parts = [];
+        if (name) parts.push(name);
+        if (email) parts.push(email);
+        if ($view) $view.textContent = parts.join(' · ');
+
+        if (typeof PRS_BOOK !== 'undefined') PRS_BOOK.has_contact = 1;
+
+        showForm(false);
+        setMsg('Saved');
+      } else {
+        setMsg(out?.message || 'Error');
+      }
+    } catch {
+      setMsg('Error');
+    } finally {
+      $saveBtn?.removeAttribute('disabled');
+    }
+  }
+
+  // Estado inicial
+  toggleByStatus(false);
+});
