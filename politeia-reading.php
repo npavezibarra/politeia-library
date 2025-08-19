@@ -21,6 +21,8 @@ require_once POLITEIA_READING_PATH . 'includes/class-books.php';
 require_once POLITEIA_READING_PATH . 'includes/class-user-books.php';
 require_once POLITEIA_READING_PATH . 'includes/class-reading-sessions.php';
 require_once POLITEIA_READING_PATH . 'includes/helpers.php';
+require_once __DIR__ . '/includes/class-reading-sessions.php';
+
 
 // ===== Activation Hook =====
 register_activation_hook( __FILE__, [ 'Politeia_Reading_Activator', 'activate' ] );

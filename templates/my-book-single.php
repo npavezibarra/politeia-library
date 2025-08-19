@@ -295,7 +295,6 @@ wp_enqueue_style( 'politeia-reading' );
 
     <!-- Arriba derecha: session recorder -->
     <div id="prs-session-recorder" class="prs-box">
-      <h2><?php esc_html_e('Session recorder','politeia-reading'); ?></h2>
       <?php echo do_shortcode( '[politeia_start_reading book_id="'. (int)$book->id .'"]' ); ?>
     </div>
 

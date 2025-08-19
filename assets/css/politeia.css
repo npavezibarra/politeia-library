@@ -102,3 +102,43 @@ span#purchase-channel-form {
   outline: 2px solid currentColor;
   outline-offset: 2px;
 }
+
+
+  .prs-sr-table{ width:100%; border-collapse:collapse; background:#fff; }
+  .prs-sr-table th, .prs-sr-table td{ padding:10px; border:1px solid #ddd; text-align:left; vertical-align:middle; }
+  .prs-sr-table th{ width:40%; background:#f6f6f6; }
+  .prs-sr-input{ width:100%; box-sizing:border-box; }
+  .prs-sr-row--full td{ text-align:right; }
+  .prs-sr-timer{ font-size:24px; font-weight:600; padding:12px 0; }
+
+  .prs-btn{ padding:10px 14px; background:#111; color:#fff; border:none; cursor:pointer; }
+  .prs-btn[disabled]{ opacity:.4; cursor:not-allowed; }
+
+  /* Right-align all action rows */
+  .prs-sr-actions{
+    display:flex;
+    align-items:center;
+    justify-content:flex-end;   /* ← right */
+    gap:10px;
+  }
+  /* Status label floats to the left side of the row */
+  .prs-sr-actions .prs-sr-status{
+    order:-1;                   /* move first */
+    margin-right:auto;          /* push buttons to right */
+    font-size:12px; color:#666;
+  }
+
+  /* Make the Start/Stop rows use a single full-width cell (already true) */
+
+  .prs-sr-actions{
+    display:flex;
+    align-items:center;
+    justify-content:flex-end; /* derecha */
+    gap:10px;
+  }
+  .prs-sr-actions .prs-sr-status{
+    order:-1;                 /* mensaje a la izquierda */
+    margin-right:auto;
+    font-size:12px; color:#666;
+  }
+  
