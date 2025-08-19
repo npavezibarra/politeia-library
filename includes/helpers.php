@@ -148,3 +148,4 @@ function prs_get_active_loan_start_date( $user_id, $book_id ) {
         $user_id, $book_id
     ) );
 }
+

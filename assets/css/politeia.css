@@ -48,3 +48,57 @@
 button#owning-contact-save {
     margin-top: 15px;
 }
+
+span#purchase-channel-form {
+    margin: 0px;
+}
+
+#purchase-channel-form>div {
+  margin-bottom:5px;
+}
+
+
+/* Container */
+.prs-stars {
+  display: inline-flex;
+  gap: 4px;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent; /* mobile: no blue flash */
+}
+
+/* Full reset so no theme/UA button styles sneak in */
+.prs-star {
+  all: unset;                 /* wipe default <button> styles */
+  display: inline-block;
+  padding: 0 2px;
+  font-size: 22px;
+  line-height: 1;
+  color: #bbb;                /* inactive */
+  cursor: pointer;
+
+  /* extra belts & suspenders for stubborn browsers */
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+/* Active (filled) star */
+.prs-star.is-active {
+  color: #f5b301;             /* yellow */
+}
+
+/* Accessible focus without blue background */
+.prs-star:focus,
+.prs-star:active,
+.prs-star:focus-visible {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.prs-star:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}

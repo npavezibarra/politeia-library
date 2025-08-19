@@ -56,6 +56,7 @@ wp_localize_script( 'politeia-my-book', 'PRS_BOOK', [
   'user_book_id'  => (int) $ub->id,
   'owning_status' => (string) $ub->owning_status, // '' si es NULL
   'has_contact'   => $has_contact ? 1 : 0,
+  'rating'        => isset($ub->rating) && $ub->rating !== null ? (int) $ub->rating : 0,
 ] );
 wp_enqueue_style( 'politeia-reading' );
 ?>
@@ -140,7 +141,26 @@ wp_enqueue_style( 'politeia-reading' );
         <strong><?php echo esc_html( $book->author ); ?></strong>
         <?php echo $book->year ? ' · ' . (int)$book->year : ''; ?>
       </div>
-      <div class="prs-meta" aria-hidden="true" style="letter-spacing:2px; margin-top:8px;">★★★★★</div>
+      <?php
+          // rating actual del usuario (0-5 o NULL)
+          $current_rating = is_null($ub->rating) ? 0 : (int) $ub->rating;
+        ?>
+        <div class="prs-field" id="fld-user-rating">
+          <?php $current_rating = isset($ub->rating) && $ub->rating !== null ? (int)$ub->rating : 0; ?>
+<div id="prs-user-rating" class="prs-stars" role="radiogroup" aria-label="<?php esc_attr_e('Your rating','politeia-reading'); ?>">
+  <?php for ($i=1; $i<=5; $i++): ?>
+    <button type="button"
+      class="prs-star<?php echo ($i <= $current_rating) ? ' is-active' : ''; ?>"
+      data-value="<?php echo $i; ?>"
+      role="radio"
+      aria-checked="<?php echo ($i === $current_rating) ? 'true' : 'false'; ?>">
+      ★
+    </button>
+  <?php endfor; ?>
+</div>
+
+          <span id="rating-status" class="prs-help" style="margin-left:8px;"></span>
+        </div>
 
       <!-- Pages -->
       <div class="prs-field" id="fld-pages">
@@ -187,6 +207,7 @@ wp_enqueue_style( 'politeia-reading' );
         </span>
         <a href="#" id="purchase-channel-edit" class="prs-inline-actions"><?php esc_html_e('edit', 'politeia-reading'); ?></a>
         <span id="purchase-channel-form" style="display:none;" class="prs-inline-actions">
+        <div>
           <select id="purchase-channel-select">
             <option value=""><?php esc_html_e('Select…','politeia-reading'); ?></option>
             <option value="online" <?php selected( $ub->purchase_channel, 'online' ); ?>><?php esc_html_e('Online','politeia-reading'); ?></option>
@@ -195,6 +216,7 @@ wp_enqueue_style( 'politeia-reading' );
           <input type="text" id="purchase-place-input" placeholder="<?php esc_attr_e('Which?','politeia-reading'); ?>"
                  value="<?php echo $ub->purchase_place ? esc_attr($ub->purchase_place) : ''; ?>"
                  style="display: <?php echo $ub->purchase_channel ? 'inline-block' : 'none'; ?>; margin-left:8px; width:220px;" />
+          </div>
           <button type="button" id="purchase-channel-save" class="prs-btn" style="padding:4px 10px;">Save</button>
           <button type="button" id="purchase-channel-cancel" class="prs-btn" style="padding:4px 10px; background:#777;">Cancel</button>
           <span id="purchase-channel-status" class="prs-help"></span>

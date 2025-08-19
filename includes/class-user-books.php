@@ -115,6 +115,19 @@ class Politeia_Reading_User_Books {
             }
         }
 
+        // ====== RATING ======
+
+        if ( array_key_exists('rating', $_POST) ) {
+            $r = is_numeric($_POST['rating']) ? (int) $_POST['rating'] : null;
+            if ( is_int($r) ) {
+            if ($r < 0) $r = 0;
+            if ($r > 5) $r = 5;
+            $update['rating'] = $r;
+            } else {
+            $update['rating'] = null; // permitir limpiar
+            }
+        }
+
         // ====== CONTACTO ======
         $cp_name_raw  = array_key_exists( 'counterparty_name',  $_POST ) ? wp_unslash( $_POST['counterparty_name'] )  : null;
         $cp_email_raw = array_key_exists( 'counterparty_email', $_POST ) ? wp_unslash( $_POST['counterparty_email'] ) : null;

@@ -307,3 +307,113 @@ document.addEventListener('DOMContentLoaded', () => {
   showInline($pcPlace, !!($pcSelect?.value || '').trim());
   updateContactSaveState(); // inicia Save deshabilitado si corresponde
 });
+
+
+// ====== USER RATING (stars) ======
+(function () {
+  const $wrap = document.getElementById('prs-user-rating');
+  const $msg  = document.getElementById('rating-status');
+  if (!$wrap) return;
+
+  // 1) rating desde PHP; 2) fallback: contar .is-active del DOM
+  let current = Number(PRS_BOOK && Number.isInteger(PRS_BOOK.rating) ? PRS_BOOK.rating : NaN);
+  if (!Number.isInteger(current)) {
+    current = $wrap.querySelectorAll('.prs-star.is-active').length || 0;
+  }
+
+  function setText(el, t){ if(el) el.textContent = t || ''; }
+  async function postMeta(payload){
+    const body = new URLSearchParams({
+      action:'prs_update_user_book_meta',
+      nonce: PRS_BOOK.nonce,
+      user_book_id: PRS_BOOK.user_book_id,
+      ...payload
+    });
+    const res = await fetch(PRS_BOOK.ajax_url, {
+      method:'POST',
+      credentials:'same-origin',
+      headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},
+      body
+    });
+    return res.json();
+  }
+
+  function paint(n){
+    const btns = $wrap.querySelectorAll('button[data-value]');
+    btns.forEach(btn => {
+      const v = Number(btn.dataset.value);
+      btn.classList.toggle('is-active', v <= n);
+      btn.setAttribute('aria-checked', v === n ? 'true' : 'false');
+      // mantener foco visible
+      btn.tabIndex = (v === (n || 1)) ? 0 : -1;
+    });
+  }
+
+  // hover/preview
+  $wrap.addEventListener('mouseover', e => {
+    const b = e.target.closest('button[data-value]');
+    if (!b) return;
+    paint(Number(b.dataset.value));
+  });
+  $wrap.addEventListener('mouseout', () => paint(current));
+
+  // click => guardar
+  $wrap.addEventListener('click', async e => {
+    const b = e.target.closest('button[data-value]');
+    if (!b) return;
+    const val = Number(b.dataset.value);
+    setText($msg, 'Saving…');
+    try{
+      const out = await postMeta({ rating: val });
+      if (out?.success){
+        current = val;
+        PRS_BOOK.rating = val;
+        paint(current);
+        setText($msg, 'Saved');
+      } else {
+        setText($msg, out?.message || 'Error');
+        paint(current); // revertir preview
+      }
+    } catch {
+      setText($msg, 'Error');
+      paint(current);
+    }
+  });
+
+  // teclado: ←/→ o ↓/↑, Enter/Space para guardar
+  $wrap.addEventListener('keydown', async e => {
+    const keys = ['ArrowLeft','ArrowDown','ArrowRight','ArrowUp','Home','End',' ','Enter'];
+    if (!keys.includes(e.key)) return;
+    e.preventDefault();
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
+      paint(Math.max(1, (current || 1) - 1));
+    } else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
+      paint(Math.min(5, (current || 0) + 1));
+    } else if (e.key === 'Home') {
+      paint(1);
+    } else if (e.key === 'End') {
+      paint(5);
+    } else if (e.key === ' ' || e.key === 'Enter') {
+      const active = Number($wrap.querySelector('button.is-active:last-of-type')?.dataset.value || current || 0);
+      setText($msg, 'Saving…');
+      try{
+        const out = await postMeta({ rating: active });
+        if (out?.success){
+          current = active;
+          PRS_BOOK.rating = active;
+          paint(current);
+          setText($msg, 'Saved');
+        } else {
+          setText($msg, out?.message || 'Error');
+          paint(current);
+        }
+      } catch {
+        setText($msg, 'Error');
+        paint(current);
+      }
+    }
+  });
+
+  // estado inicial
+  paint(current);
+})();
