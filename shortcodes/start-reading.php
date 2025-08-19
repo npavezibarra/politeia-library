@@ -18,8 +18,8 @@ add_shortcode( 'politeia_start_reading', function( $atts ){
   if ( ! $book_id ) return '';
 
   global $wpdb;
-  $user_id   = get_current_user_id();
-  $tbl_rs    = $wpdb->prefix . 'politeia_reading_sessions';
+  $user_id = get_current_user_id();
+  $tbl_rs  = $wpdb->prefix . 'politeia_reading_sessions';
 
   // Última página de la última sesión (si existe)
   $last_end_page = $wpdb->get_var( $wpdb->prepare(
@@ -30,7 +30,7 @@ add_shortcode( 'politeia_start_reading', function( $atts ){
   ) );
 
   // Encolar JS/CSS del recorder
-  wp_enqueue_script( 'politeia-start-reading' ); // handle ya registrado en tu plugin
+  wp_enqueue_script( 'politeia-start-reading' );
   wp_enqueue_style( 'politeia-reading' );
 
   // Pasar datos al JS
@@ -41,60 +41,68 @@ add_shortcode( 'politeia_start_reading', function( $atts ){
     'book_id'       => (int) $book_id,
     'last_end_page' => is_null($last_end_page) ? '' : (int) $last_end_page,
     'actions'       => [
-      'start' => 'prs_start_reading', // ← align with your backend
-      'save'  => 'prs_save_reading',  // ← align with your backend
+      'start' => 'prs_start_reading',
+      'save'  => 'prs_save_reading',
     ],
   ] );
-  
 
   ob_start();
   ?>
   <style>
-  .prs-sr { width:100%; }
-  .prs-sr .prs-sr-head { margin:0 0 8px; }
-  .prs-sr .prs-sr-last { color:#555; margin:4px 0 10px; }
+    /* Estilos mínimos (la alineación derecha de botones la manejas con tu CSS externo) */
+    .prs-sr { width:100%; }
+    .prs-sr .prs-sr-head { margin:0 0 8px; }
+    .prs-sr .prs-sr-last { color:#555; margin:4px 0 10px; }
 
-  .prs-sr-table { width:100%; border-collapse: collapse; background:#fff; }
-  .prs-sr-table th,
-  .prs-sr-table td { padding:10px; border:1px solid #ddd; text-align:left; vertical-align:middle; }
-  .prs-sr-table th { width:40%; background:#f6f6f6; }
-  .prs-sr-input { width:100%; box-sizing:border-box; }
+    .prs-sr-table { width:100%; border-collapse: collapse; background:#fff; }
+    .prs-sr-table th,
+    .prs-sr-table td { padding:10px; border:1px solid #ddd; vertical-align:middle; }
+    .prs-sr-table th { width:40%; background:#f6f6f6; text-align:left; }
+    .prs-sr-input { width:100%; box-sizing:border-box; }
+    .prs-sr-timer { font-size:28px; font-weight:600; padding:12px 0; text-align:center; }
 
-  /* Timer en fila completa */
-  .prs-sr-row--full td { text-align:left; }
-  .prs-sr-timer { font-size:24px; font-weight:600; padding:12px 0; }
+    .prs-btn {
+      padding:10px 14px;
+      background:#111;
+      color:#fff;
+      border:none;
+      cursor:pointer;
+      box-shadow:none;
+      outline:none;
+      border-radius:10px;
+    }
+    .prs-btn[disabled] { opacity:.4; cursor:not-allowed; }
+    .prs-btn:focus-visible { outline:2px solid #fff; outline-offset:2px; }
 
-  .prs-btn {
-    padding:10px 14px;
-    background:#111;
-    color:#fff;
-    border:none;
-    cursor:pointer;
-    box-shadow:none;
-    outline:none;
-  }
-  .prs-btn[disabled] { opacity:.4; cursor:not-allowed; }
-  .prs-btn:focus-visible { outline:2px solid #fff; outline-offset:2px; }
-
-  /* === Botones a la derecha (Start/Stop/Save) === */
-  .prs-sr-actions{
-    display:flex;
-    align-items:center;
-    justify-content:flex-end;   /* ← derecha */
-    gap:10px;
-    width:100%;
-  }
-  /* El mensaje queda a la izquierda y empuja los botones a la derecha */
-  .prs-sr-actions .prs-sr-status{
-    order:-1;
-    margin-right:auto;
-    font-size:12px;
-    color:#666;
-  }
-
-  .prs-sr-view { display:none; color:#222; }
-</style>
-
+    /* Bloque de éxito (HTML) */
+    .prs-sr-flash-block {
+      display:none;
+      width:100%;
+      background:#ffe680;     /* amarillo */
+      color:#111;             /* texto negro */
+      border:1px solid #ddd;
+      border-radius:10px;
+      padding:24px;
+    }
+    .prs-sr-flash-inner{
+      min-height:140px;       /* se sobreescribe con la altura del form via JS */
+      display:flex;
+      flex-direction:column;
+      align-items:center;
+      justify-content:center;
+      text-align:center;
+      gap:6px;
+    }
+    .prs-sr-flash-inner h2{
+      margin:0; font-size:22px; font-weight:800;
+    }
+    .prs-sr-flash-inner h3{
+      margin:0; font-size:18px; font-weight:600;
+    }
+    .prs-sr-flash-sub{
+      margin-top:6px; font-size:14px; opacity:.9;
+    }
+  </style>
 
   <div class="prs-sr" data-book-id="<?php echo (int) $book_id; ?>">
     <h2 class="prs-sr-head"><?php esc_html_e('Session recorder','politeia-reading'); ?></h2>
@@ -106,57 +114,75 @@ add_shortcode( 'politeia_start_reading', function( $atts ){
       </div>
     <?php endif; ?>
 
-    <table class="prs-sr-table" role="grid">
-  <tbody>
-    <!-- Start page -->
-    <tr id="prs-sr-row-start">
-      <th scope="row"><label for="prs-sr-start-page"><?php esc_html_e('Start page','politeia-reading'); ?>*</label></th>
-      <td>
-        <input type="number" min="1" id="prs-sr-start-page" class="prs-sr-input" />
-        <span id="prs-sr-start-page-view" class="prs-sr-view"></span>
-      </td>
-    </tr>
+    <!-- Bloque HTML de éxito (centrado, amarillo, h2/h3) -->
+    <div id="prs-sr-flash" class="prs-sr-flash-block" role="status" aria-live="polite">
+      <div class="prs-sr-flash-inner">
+        <h2>Well done!</h2>
+        <h3>You read <span id="prs-sr-flash-pages">—</span> in <span id="prs-sr-flash-time">—</span>.</h3>
+        <div class="prs-sr-flash-sub">I'll be waiting for you to continue with this book soon.</div>
+      </div>
+    </div>
 
-    <!-- Capítulo -->
-    <tr id="prs-sr-row-chapter">
-      <th scope="row"><label for="prs-sr-chapter"><?php esc_html_e('Chapter','politeia-reading'); ?></label></th>
-      <td>
-        <input type="text" id="prs-sr-chapter" class="prs-sr-input" />
-        <span id="prs-sr-chapter-view" class="prs-sr-view"></span>
-      </td>
-    </tr>
+    <!-- Wrapper del formulario (se oculta mientras se muestra el flash) -->
+    <div id="prs-sr-formwrap">
+      <table class="prs-sr-table" role="grid">
+        <tbody>
+          <!-- Start page -->
+          <tr id="prs-sr-row-start">
+            <th scope="row"><label for="prs-sr-start-page"><?php esc_html_e('Start page','politeia-reading'); ?>*</label></th>
+            <td>
+              <input type="number" min="1" id="prs-sr-start-page" class="prs-sr-input" />
+              <span id="prs-sr-start-page-view" class="prs-sr-view" style="display:none;"></span>
+            </td>
+          </tr>
 
-    <!-- Timer -->
-    <tr id="prs-sr-row-timer" class="prs-sr-row--full">
-      <td colspan="2">
-        <div id="prs-sr-timer" class="prs-sr-timer">00:00:00</div>
-      </td>
-    </tr>
+          <!-- Capítulo -->
+          <tr id="prs-sr-row-chapter">
+            <th scope="row"><label for="prs-sr-chapter"><?php esc_html_e('Chapter','politeia-reading'); ?></label></th>
+            <td>
+              <input type="text" id="prs-sr-chapter" class="prs-sr-input" />
+              <span id="prs-sr-chapter-view" class="prs-sr-view" style="display:none;"></span>
+            </td>
+          </tr>
 
-    <!-- Start/Stop Buttons -->
-    <tr id="prs-sr-row-actions" class="prs-sr-row--full">
-      <td colspan="2">
-        <button type="button" id="prs-sr-start" class="prs-btn" disabled>▶ <?php esc_html_e('Start Reading','politeia-reading'); ?></button>
-        <button type="button" id="prs-sr-stop" class="prs-btn" style="display:none;">■ <?php esc_html_e('Stop Reading','politeia-reading'); ?></button>
-      </td>
-    </tr>
+          <!-- Timer -->
+          <tr id="prs-sr-row-timer" class="prs-sr-row--full">
+            <td colspan="2">
+              <div id="prs-sr-timer" class="prs-sr-timer">00:00:00</div>
+            </td>
+          </tr>
 
-    <!-- End Page (aparece tras Stop) -->
-    <tr id="prs-sr-row-end" style="display:none;">
-      <th scope="row"><label for="prs-sr-end-page"><?php esc_html_e('End Page','politeia-reading'); ?>*</label></th>
-      <td>
-        <input type="number" min="1" id="prs-sr-end-page" class="prs-sr-input" />
-      </td>
-    </tr>
+          <!-- Start/Stop Buttons (tu layout exacto; la alineación derecha la manejas tú) -->
+          <tr id="prs-sr-row-actions" class="prs-sr-row--full">
+            <td colspan="2">
+              <button type="button" id="prs-sr-start" class="prs-btn" disabled>
+                ▶ <?php esc_html_e('Start Reading','politeia-reading'); ?>
+              </button>
+              <button type="button" id="prs-sr-stop" class="prs-btn" style="display:none;">
+                ■ <?php esc_html_e('Stop Reading','politeia-reading'); ?>
+              </button>
+            </td>
+          </tr>
 
-    <!-- Guardar sesión (aparece tras Stop) -->
-    <tr id="prs-sr-row-save" class="prs-sr-row--full" style="display:none;">
-      <td colspan="2">
-        <button type="button" id="prs-sr-save" class="prs-btn" disabled><?php esc_html_e('Save Session','politeia-reading'); ?></button>
-      </td>
-    </tr>
-  </tbody>
-</table>
+          <!-- End Page (aparece tras Stop) -->
+          <tr id="prs-sr-row-end" style="display:none;">
+            <th scope="row"><label for="prs-sr-end-page"><?php esc_html_e('End Page','politeia-reading'); ?>*</label></th>
+            <td>
+              <input type="number" min="1" id="prs-sr-end-page" class="prs-sr-input" />
+            </td>
+          </tr>
+
+          <!-- Guardar sesión (aparece tras Stop) -->
+          <tr id="prs-sr-row-save" class="prs-sr-row--full" style="display:none;">
+            <td colspan="2">
+              <button type="button" id="prs-sr-save" class="prs-btn" disabled>
+                <?php esc_html_e('Save Session','politeia-reading'); ?>
+              </button>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
   </div>
   <?php
   return ob_get_clean();

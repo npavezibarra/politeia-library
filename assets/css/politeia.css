@@ -108,7 +108,7 @@ span#purchase-channel-form {
   .prs-sr-table th, .prs-sr-table td{ padding:10px; border:1px solid #ddd; text-align:left; vertical-align:middle; }
   .prs-sr-table th{ width:40%; background:#f6f6f6; }
   .prs-sr-input{ width:100%; box-sizing:border-box; }
-  .prs-sr-row--full td{ text-align:right; }
+  .prs-sr-row--full td{ text-align:center; }
   .prs-sr-timer{ font-size:24px; font-weight:600; padding:12px 0; }
 
   .prs-btn{ padding:10px 14px; background:#111; color:#fff; border:none; cursor:pointer; }

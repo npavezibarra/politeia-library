@@ -70,7 +70,6 @@ wp_enqueue_style( 'politeia-reading' );
     margin: 16px 0 32px;
   }
   .prs-box{
-    border:2px solid #000;
     background:#f9f9f9;
     padding:16px;
     min-height:120px;
