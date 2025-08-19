@@ -11,10 +11,10 @@ global $wpdb;
 $user_id = get_current_user_id();
 $slug    = get_query_var('prs_book_slug');
 
-$tbl_b    = $wpdb->prefix . 'politeia_books';
-$tbl_ub   = $wpdb->prefix . 'politeia_user_books';
-$tbl_rs   = $wpdb->prefix . 'politeia_reading_sessions';
-$tbl_loans= $wpdb->prefix . 'politeia_loans';
+$tbl_b     = $wpdb->prefix . 'politeia_books';
+$tbl_ub    = $wpdb->prefix . 'politeia_user_books';
+$tbl_rs    = $wpdb->prefix . 'politeia_reading_sessions';
+$tbl_loans = $wpdb->prefix . 'politeia_loans';
 
 $book = $wpdb->get_row( $wpdb->prepare("SELECT * FROM {$tbl_b} WHERE slug=%s LIMIT 1", $slug) );
 if ( ! $book ) { status_header(404); echo '<div class="wrap"><h1>Not found</h1></div>'; get_footer(); exit; }
@@ -22,10 +22,10 @@ if ( ! $book ) { status_header(404); echo '<div class="wrap"><h1>Not found</h1><
 $ub = $wpdb->get_row( $wpdb->prepare("SELECT * FROM {$tbl_ub} WHERE user_id=%d AND book_id=%d LIMIT 1", $user_id, $book->id) );
 if ( ! $ub ) { status_header(403); echo '<div class="wrap"><h1>No access</h1><p>This book is not in your library.</p></div>'; get_footer(); exit; }
 
-/** === contacto ya guardado (DEFINIDO ANTES DE LOCALIZE) === */
+/** Contacto ya guardado (definir antes de localize) */
 $has_contact = ( ! empty($ub->counterparty_name) ) || ( ! empty($ub->counterparty_email) );
 
-/** === sesiones === */
+/** Sesiones */
 $sessions = $wpdb->get_results( $wpdb->prepare("
   SELECT id, start_time, end_time, start_page, end_page, chapter_name
   FROM {$tbl_rs}
@@ -33,7 +33,7 @@ $sessions = $wpdb->get_results( $wpdb->prepare("
   ORDER BY start_time DESC
 ", $user_id, $book->id) );
 
-/** === préstamo activo (fecha local) === */
+/** Préstamo activo (fecha local) */
 $active_start_gmt = $wpdb->get_var( $wpdb->prepare(
   "SELECT start_date FROM {$tbl_loans}
    WHERE user_id=%d AND book_id=%d AND end_date IS NULL
@@ -48,14 +48,14 @@ function prs_hms($sec){
 }
 $total_pages = 0; $total_seconds = 0;
 
-/** === assets === */
+/** Assets */
 wp_enqueue_script( 'politeia-my-book' );
 wp_localize_script( 'politeia-my-book', 'PRS_BOOK', [
   'ajax_url'      => admin_url('admin-ajax.php'),
   'nonce'         => wp_create_nonce('prs_update_user_book_meta'),
   'user_book_id'  => (int) $ub->id,
-  'has_contact'   => $has_contact ? 1 : 0,               // ← ahora sí definido
-  'owning_status' => (string) $ub->owning_status,
+  'owning_status' => (string) $ub->owning_status, // '' si es NULL
+  'has_contact'   => $has_contact ? 1 : 0,
 ] );
 wp_enqueue_style( 'politeia-reading' );
 ?>
@@ -144,6 +144,7 @@ wp_enqueue_style( 'politeia-reading' );
 
       <!-- Pages -->
       <div class="prs-field" id="fld-pages">
+        <hr style="margin-bottom: 10px">
         <span class="label"><?php esc_html_e('Pages', 'politeia-reading'); ?></span>
         <span id="pages-view"><?php echo $ub->pages ? (int)$ub->pages : '—'; ?></span>
         <a href="#" id="pages-edit" class="prs-inline-actions"><?php esc_html_e('edit', 'politeia-reading'); ?></a>
@@ -158,6 +159,7 @@ wp_enqueue_style( 'politeia-reading' );
 
       <!-- Purchase Date -->
       <div class="prs-field" id="fld-purchase-date">
+      <hr style="margin-bottom: 10px">
         <span class="label"><?php esc_html_e('Purchase Date', 'politeia-reading'); ?></span>
         <span id="purchase-date-view"><?php echo $ub->purchase_date ? esc_html($ub->purchase_date) : '—'; ?></span>
         <a href="#" id="purchase-date-edit" class="prs-inline-actions"><?php esc_html_e('edit', 'politeia-reading'); ?></a>
@@ -171,6 +173,7 @@ wp_enqueue_style( 'politeia-reading' );
 
       <!-- Purchase Channel + Which? -->
       <div class="prs-field" id="fld-purchase-channel">
+      <hr style="margin-bottom: 10px">
         <span class="label"><?php esc_html_e('Purchase Channel', 'politeia-reading'); ?></span>
         <span id="purchase-channel-view">
           <?php
@@ -200,6 +203,7 @@ wp_enqueue_style( 'politeia-reading' );
 
       <!-- Reading Status -->
       <div class="prs-field" id="fld-reading-status">
+      <hr style="margin-bottom: 10px">
         <label class="label" for="reading-status-select"><?php esc_html_e('Reading Status','politeia-reading'); ?></label>
         <select id="reading-status-select">
           <option value="not_started" <?php selected( $ub->reading_status, 'not_started' ); ?>><?php esc_html_e('Not Started','politeia-reading'); ?></option>
@@ -209,17 +213,33 @@ wp_enqueue_style( 'politeia-reading' );
         <span id="reading-status-status" class="prs-help" style="margin-left:8px;"></span>
       </div>
 
-      <!-- Owning Status + Contact -->
+      <!-- Owning Status (editable) + Contact (condicional) -->
       <div class="prs-field" id="fld-owning-status">
+      <hr style="margin-bottom: 10px">
         <label class="label" for="owning-status-select"><?php esc_html_e('Owning Status','politeia-reading'); ?></label>
         <select id="owning-status-select">
-          <option value="in_shelf"   <?php selected( $ub->owning_status, 'in_shelf' ); ?>><?php esc_html_e('In Shelf','politeia-reading'); ?></option>
-          <option value="borrowed"   <?php selected( $ub->owning_status, 'borrowed' ); ?>><?php esc_html_e('Borrowed','politeia-reading'); ?></option>
-          <option value="borrowing"  <?php selected( $ub->owning_status, 'borrowing' ); ?>><?php esc_html_e('Borrowing','politeia-reading'); ?></option>
-          <option value="sold"       <?php selected( $ub->owning_status, 'sold' ); ?>><?php esc_html_e('Sold','politeia-reading'); ?></option>
-          <option value="lost"       <?php selected( $ub->owning_status, 'lost' ); ?>><?php esc_html_e('Lost','politeia-reading'); ?></option>
+          <option value="" <?php selected( empty($ub->owning_status) ); ?>><?php esc_html_e('— Select —','politeia-reading'); ?></option>
+          <option value="borrowed"  <?php selected( $ub->owning_status, 'borrowed' );  ?>><?php esc_html_e('Borrowed','politeia-reading'); ?></option>
+          <option value="borrowing" <?php selected( $ub->owning_status, 'borrowing' ); ?>><?php esc_html_e('Borrowing','politeia-reading'); ?></option>
+          <option value="sold"      <?php selected( $ub->owning_status, 'sold' );      ?>><?php esc_html_e('Sold','politeia-reading'); ?></option>
+          <option value="lost"      <?php selected( $ub->owning_status, 'lost' );      ?>><?php esc_html_e('Lost','politeia-reading'); ?></option>
         </select>
+
+        <?php $show_return_btn = in_array( $ub->owning_status, ['borrowed','borrowing'], true ); ?>
+        <button type="button" id="owning-return-shelf" class="prs-btn" style="margin-left:8px; <?php echo $show_return_btn ? '' : 'display:none;'; ?>">
+          <?php esc_html_e('Mark as returned','politeia-reading'); ?>
+        </button>
+
         <span id="owning-status-status" class="prs-help" style="margin-left:8px;"></span>
+
+        <?php
+          // In Shelf derivado: '' (NULL) o 'borrowing' => contigo
+          $is_in_shelf = ( empty($ub->owning_status) || $ub->owning_status === 'borrowing' );
+        ?>
+        <div class="prs-help" id="derived-location" style="margin:6px 0;">
+          <strong><?php esc_html_e('Location','politeia-reading'); ?>:</strong>
+          <span id="derived-location-text"><?php echo $is_in_shelf ? esc_html__('In Shelf','politeia-reading') : esc_html__('Not In Shelf','politeia-reading'); ?></span>
+        </div>
 
         <?php
           $needs_contact = in_array($ub->owning_status, ['borrowed','borrowing','sold'], true) && ! $has_contact;

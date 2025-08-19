@@ -1,16 +1,22 @@
 <?php
 /**
  * User Books AJAX handlers (incluye Loans)
+ * - "In Shelf" es estado DERIVADO: owning_status NULL/'' => In Shelf
+ * - owning_status válido (persistido): borrowed, borrowing, sold, lost
+ * - Loans idempotentes (a lo más 1 abierto por (user, book))
  */
 if ( ! defined( 'ABSPATH' ) ) exit;
 
 class Politeia_Reading_User_Books {
 
     public static function init() {
-        add_action( 'wp_ajax_prs_update_user_book', [ __CLASS__, 'ajax_update_user_book' ] );
+        add_action( 'wp_ajax_prs_update_user_book',      [ __CLASS__, 'ajax_update_user_book' ] );
         add_action( 'wp_ajax_prs_update_user_book_meta', [ __CLASS__, 'ajax_update_user_book_meta' ] );
     }
 
+    /* ============================================================
+     * AJAX: update simple (reading_status / owning_status derivado)
+     * ============================================================ */
     public static function ajax_update_user_book() {
         if ( ! is_user_logged_in() ) self::json_error( 'auth', 401 );
         if ( ! self::verify_nonce( 'prs_update_user_book', [ 'prs_update_user_book_nonce', 'nonce' ] ) ) {
@@ -26,6 +32,7 @@ class Politeia_Reading_User_Books {
 
         $update = [];
 
+        // reading_status (opcional)
         if ( isset( $_POST['reading_status'] ) ) {
             $rs = sanitize_key( wp_unslash( $_POST['reading_status'] ) );
             if ( in_array( $rs, self::allowed_reading_status(), true ) ) {
@@ -33,19 +40,24 @@ class Politeia_Reading_User_Books {
             }
         }
 
-        if ( isset( $_POST['owning_status'] ) ) {
-            $os = sanitize_key( wp_unslash( $_POST['owning_status'] ) );
-            if ( in_array( $os, self::allowed_owning_status(), true ) ) {
-                $update['owning_status'] = $os;
-                $effective = current_time( 'mysql', true );
-                self::handle_owning_transition( $row, $os, $effective, [
-                    'counterparty_name'  => null,
-                    'counterparty_email' => null,
-                ] );
+        // owning_status (DERIVADO: vacío => volver a In Shelf)
+        if ( array_key_exists( 'owning_status', $_POST ) ) {
+            $raw = wp_unslash( $_POST['owning_status'] );
+            $os  = sanitize_key( $raw );
+            $now = current_time( 'mysql', true );
 
-                if ( ! in_array( $os, [ 'borrowed', 'borrowing', 'sold' ], true ) ) {
-                    $update['counterparty_name']  = null;
-                    $update['counterparty_email'] = null;
+            if ( $raw === '' || $raw === null ) {
+                // Volver a "In Shelf"
+                $update['owning_status'] = null;
+                self::close_open_loan( (int)$row->user_id, (int)$row->book_id, $now );
+            } elseif ( in_array( $os, self::allowed_owning_status(), true ) ) {
+                $update['owning_status'] = $os;
+
+                if ( $os === 'borrowed' || $os === 'borrowing' ) {
+                    // Asegurar loan abierto
+                    self::ensure_open_loan( (int)$row->user_id, (int)$row->book_id, [], $now );
+                } else { // sold / lost
+                    self::close_open_loan( (int)$row->user_id, (int)$row->book_id, $now );
                 }
             }
         }
@@ -56,9 +68,13 @@ class Politeia_Reading_User_Books {
         self::json_success( $updated );
     }
 
+    /* ==================================================================================
+     * AJAX: update meta granular (pages, purchase_*, contact, owning_status derivado)
+     * ================================================================================== */
     public static function ajax_update_user_book_meta() {
         if ( ! is_user_logged_in() ) self::json_error( 'auth', 401 );
 
+        // Acepta cualquiera de los dos nonces
         if ( ! self::verify_nonce_multi( [
             [ 'action' => 'prs_update_user_book_meta', 'keys' => [ 'nonce' ] ],
             [ 'action' => 'prs_update_user_book',      'keys' => [ 'prs_update_user_book_nonce' ] ],
@@ -76,26 +92,22 @@ class Politeia_Reading_User_Books {
 
         $update = [];
 
+        // ====== METADATOS ======
         if ( array_key_exists( 'pages', $_POST ) ) {
             $p = absint( $_POST['pages'] );
             $update['pages'] = $p > 0 ? $p : null;
         }
-
         if ( array_key_exists( 'purchase_date', $_POST ) ) {
             $d = sanitize_text_field( wp_unslash( $_POST['purchase_date'] ) );
-            $ok = ( $d && preg_match( '/^\d{4}-\d{2}-\d{2}$/', $d ) ) ? $d : null;
-            $update['purchase_date'] = $ok;
+            $update['purchase_date'] = ( $d && preg_match( '/^\d{4}-\d{2}-\d{2}$/', $d ) ) ? $d : null;
         }
-
         if ( array_key_exists( 'purchase_channel', $_POST ) ) {
             $pc = sanitize_key( $_POST['purchase_channel'] );
             $update['purchase_channel'] = in_array( $pc, [ 'online', 'store' ], true ) ? $pc : null;
         }
-
         if ( array_key_exists( 'purchase_place', $_POST ) ) {
             $update['purchase_place'] = sanitize_text_field( wp_unslash( $_POST['purchase_place'] ) );
         }
-
         if ( array_key_exists( 'reading_status', $_POST ) ) {
             $rs = sanitize_key( wp_unslash( $_POST['reading_status'] ) );
             if ( in_array( $rs, self::allowed_reading_status(), true ) ) {
@@ -103,46 +115,70 @@ class Politeia_Reading_User_Books {
             }
         }
 
-        $cp_name  = array_key_exists( 'counterparty_name',  $_POST ) ? sanitize_text_field( wp_unslash( $_POST['counterparty_name'] ) ) : null;
-        $cp_email = array_key_exists( 'counterparty_email', $_POST ) ? sanitize_email( wp_unslash( $_POST['counterparty_email'] ) ) : null;
+        // ====== CONTACTO ======
+        $cp_name_raw  = array_key_exists( 'counterparty_name',  $_POST ) ? wp_unslash( $_POST['counterparty_name'] )  : null;
+        $cp_email_raw = array_key_exists( 'counterparty_email', $_POST ) ? wp_unslash( $_POST['counterparty_email'] ) : null;
+        $cp_name      = isset( $cp_name_raw )  ? sanitize_text_field( $cp_name_raw ) : null;
+        $cp_email     = isset( $cp_email_raw ) ? sanitize_email( $cp_email_raw )     : null;
+
+        $both_empty = ('' === trim((string)$cp_name)) && ('' === trim((string)$cp_email));
+        $requires_contact_now = in_array( $row->owning_status, ['borrowed','borrowing','sold'], true );
+
+        if ( ($both_empty) && ($requires_contact_now)
+            && ( array_key_exists('counterparty_name', $_POST) || array_key_exists('counterparty_email', $_POST) ) ) {
+            self::json_error('contact_required', 400);
+        }
+
         if ( array_key_exists( 'counterparty_name', $_POST ) )  $update['counterparty_name']  = $cp_name;
         if ( array_key_exists( 'counterparty_email', $_POST ) ) $update['counterparty_email'] = ( $cp_email && is_email( $cp_email ) ) ? $cp_email : null;
 
+        // ====== FECHA EFECTIVA (UTC) ======
         $effective_at = null;
         if ( ! empty( $_POST['owning_effective_date'] ) ) {
             $raw = sanitize_text_field( wp_unslash( $_POST['owning_effective_date'] ) );
-            $ts = strtotime( $raw );
-            if ( $ts && preg_match('/^\d{4}-\d{2}-\d{2}$/', $raw) ) {
-                // Agrega hora actual del servidor
-                $effective_at = gmdate('Y-m-d') . ' ' . gmdate('H:i:s');
-            }            
+            if ( preg_match( '/^\d{4}-\d{2}-\d{2}$/', $raw ) ) {
+                $effective_at = $raw . ' ' . gmdate( 'H:i:s' );
+            }
         }
-        if ( ! $effective_at ) {
-            $effective_at = current_time( 'mysql', true );
-        }
+        if ( ! $effective_at ) $effective_at = current_time( 'mysql', true );
 
+        // ====== OWNING STATUS (DERIVADO) ======
         if ( array_key_exists( 'owning_status', $_POST ) ) {
-            $os = sanitize_key( wp_unslash( $_POST['owning_status'] ) );
-            if ( in_array( $os, self::allowed_owning_status(), true ) ) {
+            $raw = wp_unslash( $_POST['owning_status'] );
+            $os  = sanitize_key( $raw );
+
+            if ( $raw === '' || $raw === null ) {
+                $update['owning_status']     = null;
+                $update['counterparty_name'] = null;   // <-- add
+                $update['counterparty_email']= null;   // <-- add
+                self::close_open_loan( (int)$row->user_id, (int)$row->book_id, $now );
+            } elseif ( in_array( $os, self::allowed_owning_status(), true ) ) {
                 $update['owning_status'] = $os;
 
-                self::handle_owning_transition( $row, $os, $effective_at, [
-                    'counterparty_name'  => $cp_name,
-                    'counterparty_email' => ( $cp_email && is_email( $cp_email ) ) ? $cp_email : null,
-                ] );
+                if ( $os === 'borrowed' || $os === 'borrowing' ) {
+                    // Asegura loan abierto; actualiza contacto si vino en el mismo POST
+                    self::ensure_open_loan( (int)$row->user_id, (int)$row->book_id, [
+                        'counterparty_name'  => $cp_name,
+                        'counterparty_email' => ( $cp_email && is_email( $cp_email ) ) ? $cp_email : null,
+                    ], $effective_at );
+                } else { // sold / lost
+                    self::close_open_loan( (int)$row->user_id, (int)$row->book_id, $effective_at );
+                }
 
-                if ( ! in_array( $os, [ 'borrowed', 'borrowing', 'sold' ], true ) ) {
+                // Opcional: si está LOST, limpia contacto
+                if ( $os === 'lost' ) {
                     $update['counterparty_name']  = null;
                     $update['counterparty_email'] = null;
                 }
             }
         } else {
-            // Si no cambió el owning_status, pero sí hay datos de contacto, actualiza el préstamo activo
-            if ( $cp_name || $cp_email ) {
-                self::handle_owning_transition( $row, $row->owning_status, $effective_at, [
+            // No cambió owning_status: si llega contacto y el estado actual requiere,
+            // actualiza el loan abierto (no crear uno nuevo si no corresponde)
+            if ( ($cp_name || $cp_email) && in_array( $row->owning_status, [ 'borrowed', 'borrowing' ], true ) ) {
+                self::ensure_open_loan( (int)$row->user_id, (int)$row->book_id, [
                     'counterparty_name'  => $cp_name,
                     'counterparty_email' => ( $cp_email && is_email( $cp_email ) ) ? $cp_email : null,
-                ] );
+                ], $effective_at );
             }
         }
 
@@ -152,14 +188,20 @@ class Politeia_Reading_User_Books {
         self::json_success( $updated );
     }
 
+    /* =========================
+     * Validaciones permitidas
+     * ========================= */
     private static function allowed_reading_status() {
         return [ 'not_started', 'started', 'finished' ];
     }
-
     private static function allowed_owning_status() {
-        return [ 'in_shelf', 'borrowed', 'borrowing', 'sold', 'lost' ];
+        // In Shelf se representa con NULL/'' (derivado)
+        return [ 'borrowed', 'borrowing', 'sold', 'lost' ];
     }
 
+    /* =========================
+     * DB helpers
+     * ========================= */
     private static function get_user_book_row( $user_book_id, $user_id ) {
         global $wpdb;
         $t = $wpdb->prefix . 'politeia_user_books';
@@ -172,31 +214,15 @@ class Politeia_Reading_User_Books {
     private static function update_user_book( $user_book_id, $update ) {
         global $wpdb;
         $t = $wpdb->prefix . 'politeia_user_books';
-        $update['updated_at'] = current_time( 'mysql' );
+        $update['updated_at'] = current_time( 'mysql', true ); // UTC
         $wpdb->update( $t, $update, [ 'id' => $user_book_id ] );
-        error_log("UPDATE user_book #$user_book_id: " . print_r($update, true));
+        error_log( "UPDATE user_book #$user_book_id: " . print_r( $update, true ) );
         return $update;
     }
 
-    private static function handle_owning_transition( $user_book_row, $owning_status, $effective_at_gmt, $contact ) {
-        $user_id = (int) $user_book_row->user_id;
-        $book_id = (int) $user_book_row->book_id;
-
-        if ( in_array( $owning_status, [ 'borrowed', 'borrowing' ], true ) ) {
-            $loan_id = self::get_active_loan_id( $user_id, $book_id );
-
-            // Siempre cerrar préstamo previo, si existe
-        if ( ! empty( $loan_id ) && $loan_id > 0 ) {
-            self::close_active_loan( $user_id, $book_id, $effective_at_gmt );
-        }
-
-        // Abrir nuevo préstamo
-        self::open_loan( $user_id, $book_id, $contact, $effective_at_gmt );
-
-        } elseif ( in_array( $owning_status, [ 'in_shelf', 'sold', 'lost' ], true ) ) {
-            self::close_active_loan( $user_id, $book_id, $effective_at_gmt );
-        }
-    }
+    /* ==============================================
+     * LOANS: idempotentes (evitan duplicados)
+     * ============================================== */
 
     private static function loans_table() {
         global $wpdb;
@@ -207,52 +233,74 @@ class Politeia_Reading_User_Books {
         global $wpdb;
         $t = self::loans_table();
         return (int) $wpdb->get_var( $wpdb->prepare(
-            "SELECT id FROM {$t} WHERE user_id=%d AND book_id=%d AND end_date IS NULL ORDER BY id DESC LIMIT 1",
+            "SELECT id FROM {$t}
+             WHERE user_id=%d AND book_id=%d AND end_date IS NULL
+             ORDER BY id DESC LIMIT 1",
             $user_id, $book_id
         ) );
     }
 
-    private static function open_loan( $user_id, $book_id, $contact, $start_gmt ) {
+    /**
+     * Asegura un único loan abierto por (user, book):
+     * - Si existe, actualiza (contacto/updated_at).
+     * - Si no existe, inserta uno nuevo con start_date = $start_gmt.
+     */
+    private static function ensure_open_loan( $user_id, $book_id, $data = [], $start_gmt = null ) {
         global $wpdb;
-        $t = self::loans_table();
-        $wpdb->insert( $t, [
-            'user_id'           => $user_id,
-            'book_id'           => $book_id,
-            'counterparty_name' => $contact['counterparty_name'] ?? null,
-            'counterparty_email'=> $contact['counterparty_email'] ?? null,
-            'start_date'        => $start_gmt,
-            'end_date'          => null,
-            'created_at'        => current_time( 'mysql' ),
-            'updated_at'        => current_time( 'mysql' ),
-        ] );
-        error_log("✅ OPEN LOAN para user_id=$user_id, book_id=$book_id");
-        return (int) $wpdb->insert_id;
-    }
-
-    private static function update_loan_contact( $loan_id, $contact ) {
-        global $wpdb;
-        $t = self::loans_table();
-        $wpdb->update( $t, [
-            'counterparty_name'  => $contact['counterparty_name']  ?? null,
-            'counterparty_email' => $contact['counterparty_email'] ?? null,
-            'updated_at'         => current_time( 'mysql' ),
-        ], [ 'id' => $loan_id ] );
-        error_log("🔁 UPDATE LOAN #$loan_id: " . print_r($contact, true));
-    }
-
-    private static function close_active_loan( $user_id, $book_id, $end_gmt ) {
-        global $wpdb;
-        $t = self::loans_table();
-        $loan_id = self::get_active_loan_id( $user_id, $book_id );
-        if ( $loan_id ) {
-            $wpdb->update( $t, [
-                'end_date'   => $end_gmt,
-                'updated_at' => current_time( 'mysql' ),
-            ], [ 'id' => $loan_id ] );
-            error_log("❌ CLOSED LOAN #$loan_id para user_id=$user_id, book_id=$book_id");
+        $t   = self::loans_table();
+        $now = current_time( 'mysql', true );
+    
+        $open_id = self::get_active_loan_id( $user_id, $book_id );
+        if ( $open_id ) {
+            $row = [ 'updated_at' => $now ];
+            if ( array_key_exists( 'counterparty_name', $data ) )  $row['counterparty_name']  = $data['counterparty_name'];
+            if ( array_key_exists( 'counterparty_email', $data ) ) $row['counterparty_email'] = $data['counterparty_email'];
+            $wpdb->update( $t, $row, [ 'id' => $open_id ] );
+            error_log("🔁 ensure_open_loan UPDATE #$open_id (user=$user_id, book=$book_id)");
+            return $open_id;
         }
+    
+        // Si NO hay contacto, NO insertes un loan vacío
+        $has_contact = !empty($data['counterparty_name']) || !empty($data['counterparty_email']);
+        if ( ! $has_contact ) {
+            error_log("⚠️ ensure_open_loan SKIP insert (missing contact) user=$user_id book=$book_id");
+            return 0;
+        }
+    
+        // Insertar nuevo
+        $start = $start_gmt ?: $now;
+        $wpdb->insert( $t, [
+            'user_id'           => (int) $user_id,
+            'book_id'           => (int) $book_id,
+            'counterparty_name' => $data['counterparty_name']  ?? null,
+            'counterparty_email'=> $data['counterparty_email'] ?? null,
+            'start_date'        => $start,
+            'end_date'          => null,
+            'created_at'        => $now,
+            'updated_at'        => $now,
+        ], [ '%d','%d','%s','%s','%s','%s','%s','%s' ] );
+        $new_id = (int) $wpdb->insert_id;
+        error_log("✅ ensure_open_loan INSERT #$new_id (user=$user_id, book=$book_id)");
+        return $new_id;
+    }    
+
+    /** Cierra cualquier loan abierto del par (user, book). */
+    private static function close_open_loan( $user_id, $book_id, $end_gmt ) {
+        global $wpdb;
+        $t   = self::loans_table();
+        $now = current_time( 'mysql', true );
+        $wpdb->query( $wpdb->prepare(
+            "UPDATE {$t}
+             SET end_date=%s, updated_at=%s
+             WHERE user_id=%d AND book_id=%d AND end_date IS NULL",
+            $end_gmt, $now, $user_id, $book_id
+        ) );
+        error_log( "❌ close_open_loan (user=$user_id, book=$book_id)" );
     }
 
+    /* =========================
+     * Nonces & JSON helpers
+     * ========================= */
     private static function verify_nonce( $action, $keys = [ '_ajax_nonce', 'security', 'nonce' ] ) {
         foreach ( (array) $keys as $k ) {
             if ( isset( $_REQUEST[ $k ] ) ) {
