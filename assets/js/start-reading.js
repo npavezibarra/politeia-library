@@ -27,6 +27,9 @@ document.addEventListener('DOMContentLoaded', () => {
   const $flashTime    = $('#prs-sr-flash-time');
   const $formWrap     = $('#prs-sr-formwrap');
 
+  // Aviso falta de pages
+  const $rowNeedsPages = document.getElementById('prs-sr-row-needs-pages');
+
   // helpers de tiempo
   let t0 = 0, raf = 0;
   const pad = (n) => String(n).padStart(2, '0');
@@ -46,7 +49,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const toggle    = (el, show) => { if (el) el.style.display = show ? '' : 'none'; };
   const toggleRow = (row, show) => { if (row) row.style.display = show ? '' : 'none'; };
 
-  // Validaciones
+  // Validaciones de campos
   function validStart() {
     const v = Number($startPage?.value || 0);
     return Number.isInteger(v) && v > 0;
@@ -59,10 +62,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // Bloqueo por estado de posesión
   const BLOCKED = new Set(['borrowed', 'lost', 'sold']);
-  const $owningSelect = document.getElementById('owning-status-select'); // puede existir en la misma página
+  const $owningSelect = document.getElementById('owning-status-select'); // si existe en la misma página
 
   function statusValue() {
-    // Prioriza el dropdown vivo si existe; si no, el valor que vino del server
     const v = ($owningSelect && $owningSelect.value)
       ? String($owningSelect.value).trim()
       : (PRS_SR.owning_status || 'in_shelf');
@@ -71,17 +73,31 @@ document.addEventListener('DOMContentLoaded', () => {
   function canStartByStatus() {
     return !BLOCKED.has(statusValue());
   }
-  function updateStartEnabled() {
-    const ok = canStartByStatus() && validStart();
+
+  // Bloqueo por Pages
+  function hasPages() {
+    return Number(PRS_SR.total_pages || 0) > 0;
+  }
+
+  // Mensajes de tooltip en Start
+  function applyStartTitle() {
+    let title = '';
+    if (!hasPages()) title = 'Set total Pages for this book before starting a session.';
+    else if (!canStartByStatus()) title = 'You cannot start a session: the book is not in your possession (Borrowed, Lost or Sold).';
     if ($startBtn) {
-      $startBtn.disabled = !ok; // No usamos PRS_SR.can_start para permitir cambios en caliente
-      $startBtn.setAttribute('aria-disabled', $startBtn.disabled ? 'true' : 'false');
-      if (!canStartByStatus()) {
-        $startBtn.title = 'No puedes iniciar lectura: el libro no está en tu posesión (Borrowed, Lost o Sold).';
-      } else {
-        $startBtn.removeAttribute('title');
-      }
+      if (title) $startBtn.title = title;
+      else $startBtn.removeAttribute('title');
     }
+  }
+
+  function updateStartEnabled() {
+    const ok = hasPages() && canStartByStatus() && validStart();
+    if ($startBtn) {
+      $startBtn.disabled = !ok;
+      $startBtn.setAttribute('aria-disabled', $startBtn.disabled ? 'true' : 'false');
+    }
+    toggleRow($rowNeedsPages, !hasPages());
+    applyStartTitle();
   }
 
   // Flash helpers (igualar dimensiones y mostrar)
@@ -91,7 +107,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
   function showFlash(pagesText, timeText, ms = 4200) {
     if ($flash && $formWrap) {
-      // misma altura que el formulario
       const inner = $flash.querySelector('.prs-sr-flash-inner');
       if (inner) {
         const h = $formWrap.offsetHeight;
@@ -134,6 +149,19 @@ document.addEventListener('DOMContentLoaded', () => {
   $endPage?.addEventListener('input',   () => { if ($saveBtn) $saveBtn.disabled = !validEnd(); });
   $owningSelect?.addEventListener('change', updateStartEnabled);
 
+  // Si el usuario guarda "Pages" en el panel del libro (mismo DOM)
+  const $pagesSave = document.getElementById('pages-save');
+  const $pagesInput = document.getElementById('pages-input');
+  if ($pagesSave && $pagesInput) {
+    $pagesSave.addEventListener('click', () => {
+      const v = Number($pagesInput.value || 0);
+      if (Number.isInteger(v) && v > 0) {
+        PRS_SR.total_pages = v;  // actualiza cache local
+        updateStartEnabled();
+      }
+    });
+  }
+
   // API
   const ACTION_START = (PRS_SR?.actions?.start) || 'prs_start_reading';
   const ACTION_SAVE  = (PRS_SR?.actions?.save)  || 'prs_save_reading';
@@ -156,14 +184,18 @@ document.addEventListener('DOMContentLoaded', () => {
     return out;
   }
 
+  // === NUEVO: mantener y enviar session_id ===
+  let sessionId = null;
   let durationSec = 0;
 
   // Start
   $startBtn?.addEventListener('click', async (e) => {
-    if ($startBtn.disabled || !canStartByStatus() || !validStart()) {
+    if ($startBtn.disabled || !hasPages() || !canStartByStatus() || !validStart()) {
       e.preventDefault();
+      updateStartEnabled();
       return;
     }
+    sessionId = null; // reset
     const startPageVal = Number($startPage.value);
     const chapterVal   = ($chapter?.value || '').trim();
 
@@ -175,20 +207,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
     try {
       const out = await api(ACTION_START, { start_page: startPageVal, chapter_name: chapterVal });
-      if (!out?.success) {
+      if (out?.success) {
+        // <<< guardar session_id del backend
+        sessionId = out?.data?.session_id ?? null;
+      } else {
         // Revertimos si backend bloquea (doble seguridad)
         stopTimer();
         setIdle();
         console.error('Start reading error', out);
-        if (out?.message === 'not_in_possession' || out?.data?.message === 'not_in_possession') {
-          alert('No puedes iniciar lectura: el libro no está en tu posesión (Borrowed, Lost o Sold).');
+        if (out?.message === 'pages_required' || out?.data?.message === 'pages_required') {
+          alert('You must set total Pages to start a session.');
         }
       }
     } catch (err) {
       console.error(err);
       stopTimer();
       setIdle();
-      alert('Error de red al iniciar la sesión.');
+      alert('Network error while starting the session.');
     }
   });
 
@@ -213,6 +248,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const chapterVal = ($chapter?.value || '').trim();
 
       const out = await api(ACTION_SAVE, {
+        session_id: sessionId || '', // <<< enviar session_id para actualizar placeholder
         start_page: start,
         end_page: end,
         chapter_name: chapterVal,
@@ -220,6 +256,9 @@ document.addEventListener('DOMContentLoaded', () => {
       });
 
       if (out?.success) {
+        // Limpiar sessionId: la sesión quedó cerrada
+        sessionId = null;
+
         // Actualiza “Last session page” en la UI
         const lastNode = document.querySelector('.prs-sr-last strong');
         if (lastNode) lastNode.textContent = String(end);
@@ -227,7 +266,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Prepara próxima sesión: start = end
         if ($startPage) $startPage.value = String(end);
 
-        // Construir textos fancy
+        // Fancy texts
         const pages = Math.max(0, end - start);
         const pagesTxt = (pages === 1) ? '1 página' : `${pages} páginas`;
         const mins  = Math.round(durationSec / 60);
@@ -241,12 +280,12 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         console.error('Save reading error', out);
         $saveBtn.disabled = false;
-        alert('No se pudo guardar la sesión.');
+        alert('Could not save the session.');
       }
     } catch (err) {
       console.error(err);
       $saveBtn.disabled = false;
-      alert('Error de red al guardar la sesión.');
+      alert('Network error while saving the session.');
     }
   });
 

@@ -31,12 +31,13 @@ add_shortcode( 'politeia_start_reading', function( $atts ){
     $user_id, $book_id
   ) );
 
-  // Owning status actual del usuario para este libro
-  $owning_status = $wpdb->get_var( $wpdb->prepare(
-    "SELECT owning_status FROM {$tbl_ub} WHERE user_id=%d AND book_id=%d LIMIT 1",
+  // Owning status y pages actuales del usuario para este libro
+  $row_ub = $wpdb->get_row( $wpdb->prepare(
+    "SELECT owning_status, pages FROM {$tbl_ub} WHERE user_id=%d AND book_id=%d LIMIT 1",
     $user_id, $book_id
   ) );
-  if ( ! $owning_status ) { $owning_status = 'in_shelf'; }
+  $owning_status = $row_ub && $row_ub->owning_status ? (string)$row_ub->owning_status : 'in_shelf';
+  $total_pages   = $row_ub && $row_ub->pages ? (int)$row_ub->pages : 0;
 
   // No se puede iniciar si está prestado a otro, perdido o vendido
   $can_start = ! in_array( $owning_status, [ 'borrowed', 'lost', 'sold' ], true );
@@ -53,6 +54,7 @@ add_shortcode( 'politeia_start_reading', function( $atts ){
     'book_id'       => (int) $book_id,
     'last_end_page' => is_null($last_end_page) ? '' : (int) $last_end_page,
     'owning_status' => (string) $owning_status,
+    'total_pages'   => (int) $total_pages, // ← NUEVO
     'can_start'     => $can_start ? 1 : 0,
     'actions'       => [
       'start' => 'prs_start_reading',
@@ -116,6 +118,12 @@ add_shortcode( 'politeia_start_reading', function( $atts ){
     }
     .prs-btn[disabled] { opacity:.4; cursor:not-allowed; }
     .prs-btn:focus-visible { outline:2px solid #fff; outline-offset:2px; }
+
+    /* Nota cuando faltan páginas */
+    .prs-sr-note {
+      font-size:13px;
+      color:#444;
+    }
   </style>
 
   <div class="prs-sr" data-book-id="<?php echo (int) $book_id; ?>">
@@ -166,14 +174,21 @@ add_shortcode( 'politeia_start_reading', function( $atts ){
             </td>
           </tr>
 
-          <!-- Start/Stop Buttons (tu layout exacto; la alineación derecha la manejas con tu CSS externo) -->
+          <!-- AVISO cuando no hay pages -->
+          <tr id="prs-sr-row-needs-pages" class="prs-sr-row--full" style="display:none;">
+            <td colspan="2">
+              <div class="prs-sr-note">To start a session, set the total <strong>Pages</strong> for this book in the info panel.</div>
+            </td>
+          </tr>
+
+          <!-- Start/Stop Buttons (tu layout exacto; alineación derecha en tu CSS externo) -->
           <tr id="prs-sr-row-actions" class="prs-sr-row--full">
             <td colspan="2">
               <button
                 type="button"
                 id="prs-sr-start"
                 class="prs-btn"
-                <?php echo $can_start ? 'disabled' : 'disabled'; /* El JS controlará el estado final */ ?>
+                disabled
               >
                 ▶ <?php esc_html_e('Start Reading','politeia-reading'); ?>
               </button>
