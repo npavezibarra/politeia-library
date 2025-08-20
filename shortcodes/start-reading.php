@@ -19,7 +19,9 @@ add_shortcode( 'politeia_start_reading', function( $atts ){
 
   global $wpdb;
   $user_id = get_current_user_id();
-  $tbl_rs  = $wpdb->prefix . 'politeia_reading_sessions';
+
+  $tbl_rs = $wpdb->prefix . 'politeia_reading_sessions';
+  $tbl_ub = $wpdb->prefix . 'politeia_user_books';
 
   // Última página de la última sesión (si existe)
   $last_end_page = $wpdb->get_var( $wpdb->prepare(
@@ -28,6 +30,16 @@ add_shortcode( 'politeia_start_reading', function( $atts ){
      ORDER BY end_time DESC LIMIT 1",
     $user_id, $book_id
   ) );
+
+  // Owning status actual del usuario para este libro
+  $owning_status = $wpdb->get_var( $wpdb->prepare(
+    "SELECT owning_status FROM {$tbl_ub} WHERE user_id=%d AND book_id=%d LIMIT 1",
+    $user_id, $book_id
+  ) );
+  if ( ! $owning_status ) { $owning_status = 'in_shelf'; }
+
+  // No se puede iniciar si está prestado a otro, perdido o vendido
+  $can_start = ! in_array( $owning_status, [ 'borrowed', 'lost', 'sold' ], true );
 
   // Encolar JS/CSS del recorder
   wp_enqueue_script( 'politeia-start-reading' );
@@ -40,6 +52,8 @@ add_shortcode( 'politeia_start_reading', function( $atts ){
     'user_id'       => (int) $user_id,
     'book_id'       => (int) $book_id,
     'last_end_page' => is_null($last_end_page) ? '' : (int) $last_end_page,
+    'owning_status' => (string) $owning_status,
+    'can_start'     => $can_start ? 1 : 0,
     'actions'       => [
       'start' => 'prs_start_reading',
       'save'  => 'prs_save_reading',
@@ -61,19 +75,6 @@ add_shortcode( 'politeia_start_reading', function( $atts ){
     .prs-sr-input { width:100%; box-sizing:border-box; }
     .prs-sr-timer { font-size:28px; font-weight:600; padding:12px 0; text-align:center; }
 
-    .prs-btn {
-      padding:10px 14px;
-      background:#111;
-      color:#fff;
-      border:none;
-      cursor:pointer;
-      box-shadow:none;
-      outline:none;
-      border-radius:10px;
-    }
-    .prs-btn[disabled] { opacity:.4; cursor:not-allowed; }
-    .prs-btn:focus-visible { outline:2px solid #fff; outline-offset:2px; }
-
     /* Bloque de éxito (HTML) */
     .prs-sr-flash-block {
       display:none;
@@ -85,7 +86,7 @@ add_shortcode( 'politeia_start_reading', function( $atts ){
       padding:24px;
     }
     .prs-sr-flash-inner{
-      min-height:140px;       /* se sobreescribe con la altura del form via JS */
+      min-height:140px;       /* se ajusta a la altura del form via JS */
       display:flex;
       flex-direction:column;
       align-items:center;
@@ -102,6 +103,19 @@ add_shortcode( 'politeia_start_reading', function( $atts ){
     .prs-sr-flash-sub{
       margin-top:6px; font-size:14px; opacity:.9;
     }
+
+    .prs-btn {
+      padding:10px 14px;
+      background:#111;
+      color:#fff;
+      border:none;
+      cursor:pointer;
+      box-shadow:none;
+      outline:none;
+      border-radius:10px;
+    }
+    .prs-btn[disabled] { opacity:.4; cursor:not-allowed; }
+    .prs-btn:focus-visible { outline:2px solid #fff; outline-offset:2px; }
   </style>
 
   <div class="prs-sr" data-book-id="<?php echo (int) $book_id; ?>">
@@ -117,9 +131,9 @@ add_shortcode( 'politeia_start_reading', function( $atts ){
     <!-- Bloque HTML de éxito (centrado, amarillo, h2/h3) -->
     <div id="prs-sr-flash" class="prs-sr-flash-block" role="status" aria-live="polite">
       <div class="prs-sr-flash-inner">
-        <h2>Well done!</h2>
-        <h3>You read <span id="prs-sr-flash-pages">—</span> in <span id="prs-sr-flash-time">—</span>.</h3>
-        <div class="prs-sr-flash-sub">I'll be waiting for you to continue with this book soon.</div>
+        <h2>¡Muy bien!</h2>
+        <h3>Leíste <span id="prs-sr-flash-pages">—</span> en <span id="prs-sr-flash-time">—</span>.</h3>
+        <div class="prs-sr-flash-sub">Te espero pronto para seguir con este libro.</div>
       </div>
     </div>
 
@@ -152,10 +166,15 @@ add_shortcode( 'politeia_start_reading', function( $atts ){
             </td>
           </tr>
 
-          <!-- Start/Stop Buttons (tu layout exacto; la alineación derecha la manejas tú) -->
+          <!-- Start/Stop Buttons (tu layout exacto; la alineación derecha la manejas con tu CSS externo) -->
           <tr id="prs-sr-row-actions" class="prs-sr-row--full">
             <td colspan="2">
-              <button type="button" id="prs-sr-start" class="prs-btn" disabled>
+              <button
+                type="button"
+                id="prs-sr-start"
+                class="prs-btn"
+                <?php echo $can_start ? 'disabled' : 'disabled'; /* El JS controlará el estado final */ ?>
+              >
                 ▶ <?php esc_html_e('Start Reading','politeia-reading'); ?>
               </button>
               <button type="button" id="prs-sr-stop" class="prs-btn" style="display:none;">

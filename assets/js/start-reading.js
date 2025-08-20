@@ -46,23 +46,73 @@ document.addEventListener('DOMContentLoaded', () => {
   const toggle    = (el, show) => { if (el) el.style.display = show ? '' : 'none'; };
   const toggleRow = (row, show) => { if (row) row.style.display = show ? '' : 'none'; };
 
-  const validStart = () => {
+  // Validaciones
+  function validStart() {
     const v = Number($startPage?.value || 0);
     return Number.isInteger(v) && v > 0;
-  };
-  const validEnd = () => {
+  }
+  function validEnd() {
     const s = Number($startPage?.value || 0);
     const e = Number($endPage?.value || 0);
     return Number.isInteger(e) && e >= s && e > 0;
-  };
+  }
 
+  // Bloqueo por estado de posesión
+  const BLOCKED = new Set(['borrowed', 'lost', 'sold']);
+  const $owningSelect = document.getElementById('owning-status-select'); // puede existir en la misma página
+
+  function statusValue() {
+    // Prioriza el dropdown vivo si existe; si no, el valor que vino del server
+    const v = ($owningSelect && $owningSelect.value)
+      ? String($owningSelect.value).trim()
+      : (PRS_SR.owning_status || 'in_shelf');
+    return v;
+  }
+  function canStartByStatus() {
+    return !BLOCKED.has(statusValue());
+  }
+  function updateStartEnabled() {
+    const ok = canStartByStatus() && validStart();
+    if ($startBtn) {
+      $startBtn.disabled = !ok; // No usamos PRS_SR.can_start para permitir cambios en caliente
+      $startBtn.setAttribute('aria-disabled', $startBtn.disabled ? 'true' : 'false');
+      if (!canStartByStatus()) {
+        $startBtn.title = 'No puedes iniciar lectura: el libro no está en tu posesión (Borrowed, Lost o Sold).';
+      } else {
+        $startBtn.removeAttribute('title');
+      }
+    }
+  }
+
+  // Flash helpers (igualar dimensiones y mostrar)
+  function hideFlash() {
+    if ($flash) { $flash.style.display = 'none'; }
+    if ($formWrap) $formWrap.style.display = '';
+  }
+  function showFlash(pagesText, timeText, ms = 4200) {
+    if ($flash && $formWrap) {
+      // misma altura que el formulario
+      const inner = $flash.querySelector('.prs-sr-flash-inner');
+      if (inner) {
+        const h = $formWrap.offsetHeight;
+        if (h) inner.style.minHeight = `${h}px`;
+      }
+      setText($flashPages, pagesText);
+      setText($flashTime, timeText);
+      $flash.style.display = 'block';
+      $formWrap.style.display = 'none';
+      window.setTimeout(hideFlash, ms);
+    }
+  }
+
+  // Estados UI
   function setIdle() {
     toggle($startPage, true);   toggle($startView, false);
     toggle($chapter, true);     toggle($chapterView, false);
     toggleRow($rowActions, true);
     toggle($startBtn, true);    toggle($stopBtn, false);
     toggleRow($rowEnd, false);  toggleRow($rowSave, false);
-    if ($startBtn) $startBtn.disabled = !validStart();
+    updateStartEnabled();
   }
   function setRunning() {
     hideFlash();
@@ -79,9 +129,10 @@ document.addEventListener('DOMContentLoaded', () => {
     if ($saveBtn) $saveBtn.disabled = !validEnd();
   }
 
-  // inputs
-  $startPage?.addEventListener('input', () => { if ($startBtn) $startBtn.disabled = !validStart(); });
-  $endPage?.addEventListener('input',   () => { if ($saveBtn)  $saveBtn.disabled  = !validEnd();   });
+  // Eventos de inputs
+  $startPage?.addEventListener('input', updateStartEnabled);
+  $endPage?.addEventListener('input',   () => { if ($saveBtn) $saveBtn.disabled = !validEnd(); });
+  $owningSelect?.addEventListener('change', updateStartEnabled);
 
   // API
   const ACTION_START = (PRS_SR?.actions?.start) || 'prs_start_reading';
@@ -105,43 +156,39 @@ document.addEventListener('DOMContentLoaded', () => {
     return out;
   }
 
-  // Flash helpers (igualar dimensiones y mostrar)
-  function hideFlash() {
-    if ($flash) { $flash.style.display = 'none'; }
-    if ($formWrap) $formWrap.style.display = '';
-  }
-  function showFlash(pagesText, timeText, ms = 10000) {
-    if ($flash && $formWrap) {
-      // misma altura que el formulario
-      const h = $formWrap.offsetHeight;
-      if (h) $flash.querySelector('.prs-sr-flash-inner').style.minHeight = `${h}px`;
-      setText($flashPages, pagesText);
-      setText($flashTime, timeText);
-      $flash.style.display = 'block';
-      $formWrap.style.display = 'none';
-      window.setTimeout(hideFlash, ms);
-    }
-  }
-
   let durationSec = 0;
 
   // Start
-  $startBtn?.addEventListener('click', async () => {
-    if (!validStart()) return;
-    const startPage = Number($startPage.value);
-    const chapter   = ($chapter.value || '').trim();
+  $startBtn?.addEventListener('click', async (e) => {
+    if ($startBtn.disabled || !canStartByStatus() || !validStart()) {
+      e.preventDefault();
+      return;
+    }
+    const startPageVal = Number($startPage.value);
+    const chapterVal   = ($chapter?.value || '').trim();
 
-    setText($startView, String(startPage));
-    setText($chapterView, chapter || '—');
+    setText($startView, String(startPageVal));
+    setText($chapterView, chapterVal || '—');
 
     setRunning();
     startTimer();
 
     try {
-      const out = await api(ACTION_START, { start_page: startPage, chapter_name: chapter });
-      if (!out?.success) console.error('Start reading error', out);
-    } catch (e) {
-      console.error(e);
+      const out = await api(ACTION_START, { start_page: startPageVal, chapter_name: chapterVal });
+      if (!out?.success) {
+        // Revertimos si backend bloquea (doble seguridad)
+        stopTimer();
+        setIdle();
+        console.error('Start reading error', out);
+        if (out?.message === 'not_in_possession' || out?.data?.message === 'not_in_possession') {
+          alert('No puedes iniciar lectura: el libro no está en tu posesión (Borrowed, Lost o Sold).');
+        }
+      }
+    } catch (err) {
+      console.error(err);
+      stopTimer();
+      setIdle();
+      alert('Error de red al iniciar la sesión.');
     }
   });
 
@@ -163,12 +210,12 @@ document.addEventListener('DOMContentLoaded', () => {
     try {
       const start = Number($startPage.value);
       const end   = Number($endPage.value);
-      const chapter = ($chapter.value || '').trim();
+      const chapterVal = ($chapter?.value || '').trim();
 
       const out = await api(ACTION_SAVE, {
         start_page: start,
         end_page: end,
-        chapter_name: chapter,
+        chapter_name: chapterVal,
         duration_sec: durationSec
       });
 
@@ -177,28 +224,29 @@ document.addEventListener('DOMContentLoaded', () => {
         const lastNode = document.querySelector('.prs-sr-last strong');
         if (lastNode) lastNode.textContent = String(end);
 
-        // Prepara próximo inicio
+        // Prepara próxima sesión: start = end
         if ($startPage) $startPage.value = String(end);
 
-        // Fancy texts
+        // Construir textos fancy
         const pages = Math.max(0, end - start);
-        const pagesTxt = (pages === 1) ? '1 page' : `${pages} pages`;
+        const pagesTxt = (pages === 1) ? '1 página' : `${pages} páginas`;
         const mins  = Math.round(durationSec / 60);
-        const minsTxt = durationSec < 60 ? 'less than a minute' :
-                        (mins === 1 ? '1 minute' : `${mins} minutes`);
+        const minsTxt = durationSec < 60
+          ? 'menos de un minuto'
+          : (mins === 1 ? '1 minuto' : `${mins} minutos`);
 
-        // Dejar UI lista para la próxima
+        // Dejar UI lista y mostrar flash
         setIdle();
-
-        // Mostrar bloque HTML de éxito con mismas dimensiones
-        showFlash(pagesTxt, minsTxt, 10000);
+        showFlash(pagesTxt, minsTxt, 4200);
       } else {
         console.error('Save reading error', out);
         $saveBtn.disabled = false;
+        alert('No se pudo guardar la sesión.');
       }
-    } catch (e) {
-      console.error(e);
+    } catch (err) {
+      console.error(err);
       $saveBtn.disabled = false;
+      alert('Error de red al guardar la sesión.');
     }
   });
 
@@ -206,6 +254,6 @@ document.addEventListener('DOMContentLoaded', () => {
   setIdle();
   if (PRS_SR.last_end_page && !$startPage.value) {
     $startPage.value = PRS_SR.last_end_page;
-    if ($startBtn) $startBtn.disabled = !validStart();
   }
+  updateStartEnabled();
 });
