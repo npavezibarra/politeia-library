@@ -1,0 +1,63 @@
+/* Bloquea scroll al mostrar modal */
+body.prs-cu-lock{overflow:hidden}
+
+/* Modal */
+.prs-cu-modal[hidden]{display:none!important}
+.prs-cu-modal{
+  position:fixed; inset:0; z-index:9999;
+  background:rgba(0,0,0,.45);
+  display:flex; align-items:center; justify-content:center;
+  padding:20px;
+}
+.prs-cu-dialog{
+  width:min(92vw,740px); max-height:92vh;
+  background:#fff; border-radius:12px;
+  overflow:hidden; display:flex; flex-direction:column;
+}
+.prs-cu-title{margin:16px 20px; font-size:20px}
+.prs-cu-body{padding:0 20px 12px; overflow-y:auto}
+#prs-cu-file{margin-bottom:12px}
+
+/* Stage 8:15 (≈240x450) */
+.prs-cu-stage{
+  aspect-ratio:8/15;
+  width:min(80vw,420px);
+  background:#111; border-radius:12px;
+  position:relative; overflow:hidden;
+  margin:8px 0 12px;
+}
+
+/* Imagen centrada + zoom uniforme sin distorsión
+   !important para ganar a estilos globales del theme */
+.prs-cu-img{
+  position:absolute; top:50%; left:50%;
+  transform:translate(-50%,-50%) scale(1);
+  transform-origin:center center;
+  width:auto!important; height:auto!important;
+  max-width:none!important; max-height:none!important;
+  image-rendering:auto; will-change:transform;
+  display:block;
+}
+
+.prs-cu-zoom{margin:6px 0 4px}
+.prs-cu-zoom label{display:block; margin:6px 0 4px}
+.prs-cu-actions{
+  display:flex; gap:10px; justify-content:flex-end;
+  padding:12px 20px 16px; border-top:1px solid #eee;
+}
+
+/* Botón en el frame de la portada */
+.prs-cover-btn{background:rgba(0,0,0,.85);color:#fff;border-radius:10px;padding:10px 14px}
+
+/* Overlay del frame en la página del libro */
+.prs-cover-frame{position:relative}
+.prs-cover-overlay{
+  position:absolute; inset:0;
+  display:flex; align-items:center; justify-content:center;
+  pointer-events:none;
+}
+.prs-cover-overlay .prs-cover-btn{pointer-events:auto}
+
+/* Imagen final en el frame del libro */
+.prs-cover-img{width:100%; height:100%; object-fit:cover; display:block}
+.prs-cover-placeholder{width:100%; height:450px; background:#ddd; border-radius:12px}

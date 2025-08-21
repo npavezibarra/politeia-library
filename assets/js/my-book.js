@@ -92,7 +92,6 @@ document.addEventListener('DOMContentLoaded', () => {
     const need = NEEDS_CONTACT.has(val);
     if (fromChange) showEl($contactForm, need);
     else showEl($contactForm, need && !hasContact());
-    // al mostrar, aplicar estado del botón
     if (need) updateContactSaveState();
   }
 
@@ -209,8 +208,8 @@ document.addEventListener('DOMContentLoaded', () => {
         setText($owningMsg, 'Saved');
         setStatusUI(val, true);
         if (!NEEDS_CONTACT.has(val)) showEl($contactForm, false);
-  
-        // NEW: if returned to shelf, clear contact line
+
+        // if returned to shelf, clear contact line
         if (val === '') {
           if ($contactView)  $contactView.textContent = '';
           if (typeof PRS_BOOK !== 'undefined') PRS_BOOK.has_contact = 0;
@@ -221,7 +220,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch {
       setText($owningMsg, 'Error');
     }
-  });  
+  });
 
   // Return to shelf (owning_status = '')
   $returnBtn?.addEventListener('click', async () => {
@@ -233,8 +232,8 @@ document.addEventListener('DOMContentLoaded', () => {
         setText($owningMsg, 'Saved');
         setStatusUI('', true);
         showEl($contactForm, false);
-  
-        // NEW: clear contact view + inputs + memory
+
+        // clear contact view + inputs + memory
         if ($contactView)  $contactView.textContent = '';
         if ($contactName)  $contactName.value = '';
         if ($contactEmail) $contactEmail.value = '';
@@ -245,7 +244,7 @@ document.addEventListener('DOMContentLoaded', () => {
     } catch {
       setText($owningMsg, 'Error');
     }
-  });  
+  });
 
   // ---- Contact validation ----
   function updateContactSaveState() {
@@ -264,15 +263,8 @@ document.addEventListener('DOMContentLoaded', () => {
     const name  = ($contactName?.value || '').trim();
     const email = ($contactEmail?.value || '').trim();
 
-    // bloqueo front: requiere nombre o email, y email válido si viene
-    if (!name && !email) {
-      setText($contactMsg, 'Enter a name or an email');
-      return;
-    }
-    if (!isValidEmail(email)) {
-      setText($contactMsg, 'Invalid email');
-      return;
-    }
+    if (!name && !email) { setText($contactMsg, 'Enter a name or an email'); return; }
+    if (!isValidEmail(email)) { setText($contactMsg, 'Invalid email'); return; }
 
     setText($contactMsg, 'Saving…');
     $contactSave?.setAttribute('disabled', 'disabled');
@@ -315,7 +307,6 @@ document.addEventListener('DOMContentLoaded', () => {
   const $msg  = document.getElementById('rating-status');
   if (!$wrap) return;
 
-  // 1) rating desde PHP; 2) fallback: contar .is-active del DOM
   let current = Number(PRS_BOOK && Number.isInteger(PRS_BOOK.rating) ? PRS_BOOK.rating : NaN);
   if (!Number.isInteger(current)) {
     current = $wrap.querySelectorAll('.prs-star.is-active').length || 0;
@@ -344,12 +335,10 @@ document.addEventListener('DOMContentLoaded', () => {
       const v = Number(btn.dataset.value);
       btn.classList.toggle('is-active', v <= n);
       btn.setAttribute('aria-checked', v === n ? 'true' : 'false');
-      // mantener foco visible
       btn.tabIndex = (v === (n || 1)) ? 0 : -1;
     });
   }
 
-  // hover/preview
   $wrap.addEventListener('mouseover', e => {
     const b = e.target.closest('button[data-value]');
     if (!b) return;
@@ -357,30 +346,28 @@ document.addEventListener('DOMContentLoaded', () => {
   });
   $wrap.addEventListener('mouseout', () => paint(current));
 
-  // click => guardar
   $wrap.addEventListener('click', async e => {
     const b = e.target.closest('button[data-value]');
     if (!b) return;
     const val = Number(b.dataset.value);
     setText($msg, 'Saving…');
     try{
-      const out = await postMeta({ rating: val });
-      if (out?.success){
-        current = val;
-        PRS_BOOK.rating = val;
-        paint(current);
-        setText($msg, 'Saved');
-      } else {
-        setText($msg, out?.message || 'Error');
-        paint(current); // revertir preview
-      }
+        const out = await postMeta({ rating: val });
+        if (out?.success){
+          current = val;
+          PRS_BOOK.rating = val;
+          paint(current);
+          setText($msg, 'Saved');
+        } else {
+          setText($msg, out?.message || 'Error');
+          paint(current);
+        }
     } catch {
       setText($msg, 'Error');
       paint(current);
     }
   });
 
-  // teclado: ←/→ o ↓/↑, Enter/Space para guardar
   $wrap.addEventListener('keydown', async e => {
     const keys = ['ArrowLeft','ArrowDown','ArrowRight','ArrowUp','Home','End',' ','Enter'];
     if (!keys.includes(e.key)) return;

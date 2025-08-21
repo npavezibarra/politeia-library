@@ -21,14 +21,15 @@ require_once POLITEIA_READING_PATH . 'includes/class-books.php';
 require_once POLITEIA_READING_PATH . 'includes/class-user-books.php';
 require_once POLITEIA_READING_PATH . 'includes/class-reading-sessions.php';
 require_once POLITEIA_READING_PATH . 'includes/helpers.php';
-require_once __DIR__ . '/includes/class-reading-sessions.php';
-
+require_once POLITEIA_READING_PATH . 'templates/features/cover-upload/cover-upload.php';
 
 // ===== Activation Hook =====
 register_activation_hook( __FILE__, [ 'Politeia_Reading_Activator', 'activate' ] );
 
-// ===== Asset Registration =====
+// ===== Asset Registration / Enqueue =====
 add_action( 'wp_enqueue_scripts', function() {
+
+    // Estilos base del plugin
     wp_register_style(
         'politeia-reading',
         POLITEIA_READING_URL . 'assets/css/politeia.css',
@@ -36,6 +37,7 @@ add_action( 'wp_enqueue_scripts', function() {
         POLITEIA_READING_VERSION
     );
 
+    // Scripts varios del plugin
     wp_register_script(
         'politeia-add-book',
         POLITEIA_READING_URL . 'assets/js/add-book.js',
@@ -52,13 +54,21 @@ add_action( 'wp_enqueue_scripts', function() {
         true
     );
 
+    // Script de la página de “mi libro”
+    // (SIN dependencias de media ni nada relacionado con uploads)
     wp_register_script(
         'politeia-my-book',
-        POLITEIA_READING_URL . 'assets/js/my-book.js',
+        plugins_url( 'assets/js/my-book.js', __FILE__ ),
         [ 'jquery' ],
         POLITEIA_READING_VERSION,
         true
     );
+
+    // Carga condicional en la vista de un libro individual
+    if ( get_query_var( 'prs_book_slug' ) ) {
+        wp_enqueue_style( 'politeia-reading' );
+        wp_enqueue_script( 'politeia-my-book' );
+    }
 } );
 
 // ===== Shortcodes =====
@@ -66,4 +76,3 @@ require_once POLITEIA_READING_PATH . 'shortcodes/add-book.php';
 require_once POLITEIA_READING_PATH . 'shortcodes/start-reading.php';
 require_once POLITEIA_READING_PATH . 'shortcodes/my-books.php';
 require_once POLITEIA_READING_PATH . 'includes/class-routes.php';
-

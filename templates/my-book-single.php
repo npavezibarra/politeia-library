@@ -49,19 +49,20 @@ function prs_hms($sec){
 $total_pages = 0; $total_seconds = 0;
 
 /** Assets */
-wp_enqueue_script( 'politeia-my-book' );
 wp_localize_script( 'politeia-my-book', 'PRS_BOOK', [
   'ajax_url'      => admin_url('admin-ajax.php'),
   'nonce'         => wp_create_nonce('prs_update_user_book_meta'),
   'user_book_id'  => (int) $ub->id,
-  'owning_status' => (string) $ub->owning_status, // '' si es NULL
+  'book_id'       => (int) $book->id,
+  'owning_status' => (string) $ub->owning_status,
   'has_contact'   => $has_contact ? 1 : 0,
-  'rating'        => isset($ub->rating) && $ub->rating !== null ? (int) $ub->rating : 0,
+  'rating'        => isset($ub->rating) && $ub->rating !== null ? (int)$ub->rating : 0,
 ] );
+
 wp_enqueue_style( 'politeia-reading' );
 ?>
 <style>
-  /* Maqueta provisional del single */
+  /* Maqueta general */
   .prs-single-grid{
     display:grid;
     grid-template-columns: 280px 1fr 1fr;
@@ -69,26 +70,30 @@ wp_enqueue_style( 'politeia-reading' );
     gap:24px;
     margin: 16px 0 32px;
   }
-  .prs-box{
-    background:#f9f9f9;
-    padding:16px;
-    min-height:120px;
-  }
-  #prs-book-cover{ grid-column:1; grid-row:1 / span 2; min-height:420px; }
+  .prs-box{ background:#f9f9f9; padding:16px; min-height:120px; }
+  #prs-book-cover{ grid-column:1; grid-row:1 / span 2; }
   #prs-book-info{ grid-column:2; grid-row:1; min-height:140px; }
   #prs-session-recorder{ grid-column:3; grid-row:1; min-height:140px; }
   #prs-reading-sessions{ grid-column:1 / 4; grid-row:3; min-height:320px; }
 
-  .prs-cover-img{ width:100%; height:auto; max-height:100%; object-fit:cover; display:block; }
-  .prs-cover-placeholder{ width:100%; height:100%; background:#eee; }
+  /* Frame portada — fijo 280x450 */
+  .prs-cover-frame{
+    position:relative;
+    width:100%;           /* ocupa los 280px de la columna */
+    height:450px;
+    overflow:hidden;
+    background:#eee;
+    border-radius:12px;
+  }
+  .prs-cover-img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .prs-cover-placeholder{ width:100%; height:100%; background:#ddd; }
+
+  /* Tipos y tablas */
   .prs-box h2{ margin:0 0 8px; }
   .prs-meta{ color:#555; margin-top:6px; }
+  .prs-table{ width:100%; border-collapse:collapse; background:#fff; }
+  .prs-table th, .prs-table td{ padding:8px 10px; border-bottom:1px solid #eee; text-align:left; }
 
-  /* Tabla sesiones */
-  .prs-table { width:100%; border-collapse: collapse; background:#fff; }
-  .prs-table th, .prs-table td { padding:8px 10px; border-bottom:1px solid #eee; text-align:left; }
-
-  /* Fila/inputs dentro de #prs-book-info */
   .prs-field{ margin-top:12px; }
   .prs-field .label{ font-weight:600; display:block; margin-bottom:4px; }
   .prs-inline-actions{ margin-left:8px; }
@@ -97,22 +102,19 @@ wp_enqueue_style( 'politeia-reading' );
 
   /* Contact form (3 filas) */
   .prs-contact-form{
-    display: grid;
-    grid-template-columns: 120px minmax(240px, 1fr);
-    gap: 10px 12px;
-    max-width: 600px;
-    margin: 0px !important;
+    display:grid; grid-template-columns:120px minmax(240px,1fr);
+    gap:10px 12px; max-width:600px; margin:0 !important;
   }
-  .prs-contact-label{ align-self: center; font-weight: 600; }
-  .prs-contact-input{ width: 100%; }
-  .prs-contact-actions{ grid-column: 2; display:flex; align-items:center; gap:10px; }
+  .prs-contact-label{ align-self:center; font-weight:600; }
+  .prs-contact-input{ width:100%; }
+  .prs-contact-actions{ grid-column:2; display:flex; align-items:center; gap:10px; }
   #owning-contact-view{ margin:6px 0 0 10px; color:#555; }
 
   @media (max-width: 900px){
     .prs-single-grid{ grid-template-columns: 1fr; grid-template-rows:auto; }
-    #prs-book-cover{ grid-row:auto; min-height:260px; }
+    #prs-book-cover{ grid-row:auto; }
     #prs-book-info, #prs-session-recorder, #prs-reading-sessions{ grid-column:1; }
-    .prs-contact-form{ grid-template-columns: 1fr; margin-left:0; }
+    .prs-contact-form{ grid-template-columns:1fr; margin-left:0; }
     .prs-contact-actions{ grid-column:1; }
   }
 </style>
@@ -122,16 +124,26 @@ wp_enqueue_style( 'politeia-reading' );
 
   <div class="prs-single-grid">
 
-    <!-- Columna izquierda: portada -->
-    <div id="prs-book-cover" class="prs-box">
-      <?php
-        if ( ! empty( $book->cover_attachment_id ) ) {
-          echo wp_get_attachment_image( (int)$book->cover_attachment_id, 'large', false, ['class'=>'prs-cover-img','alt'=>$book->title] );
-        } else {
-          echo '<div class="prs-cover-placeholder"></div>';
-        }
-      ?>
+<!-- Columna izquierda: portada -->
+<div id="prs-book-cover" class="prs-box">
+  <?php
+    $user_cover_id  = isset($ub->cover_attachment_id_user) ? (int)$ub->cover_attachment_id_user : 0;
+    $canon_cover_id = isset($book->cover_attachment_id)    ? (int)$book->cover_attachment_id    : 0;
+    $final_cover_id = $user_cover_id ?: $canon_cover_id;
+    $has_image      = $final_cover_id > 0;
+  ?>
+  <div id="prs-cover-frame" class="prs-cover-frame <?php echo $has_image ? 'has-image' : ''; ?>">
+    <?php if ($has_image): ?>
+      <?php echo wp_get_attachment_image($final_cover_id,'large',false,
+        ['class'=>'prs-cover-img','alt'=>esc_attr($book->title),'id'=>'prs-cover-img']); ?>
+    <?php else: ?>
+      <div id="prs-cover-placeholder" class="prs-cover-placeholder"></div>
+    <?php endif; ?>
+    <div class="prs-cover-overlay">
+      <?php echo do_shortcode('[prs_cover_button]'); ?>
     </div>
+  </div>
+</div>
 
     <!-- Arriba centro: título/info y metacampos -->
     <div id="prs-book-info" class="prs-box">
@@ -140,60 +152,55 @@ wp_enqueue_style( 'politeia-reading' );
         <strong><?php echo esc_html( $book->author ); ?></strong>
         <?php echo $book->year ? ' · ' . (int)$book->year : ''; ?>
       </div>
-      <?php
-          // rating actual del usuario (0-5 o NULL)
-          $current_rating = is_null($ub->rating) ? 0 : (int) $ub->rating;
-        ?>
-        <div class="prs-field" id="fld-user-rating">
-          <?php $current_rating = isset($ub->rating) && $ub->rating !== null ? (int)$ub->rating : 0; ?>
-<div id="prs-user-rating" class="prs-stars" role="radiogroup" aria-label="<?php esc_attr_e('Your rating','politeia-reading'); ?>">
-  <?php for ($i=1; $i<=5; $i++): ?>
-    <button type="button"
-      class="prs-star<?php echo ($i <= $current_rating) ? ' is-active' : ''; ?>"
-      data-value="<?php echo $i; ?>"
-      role="radio"
-      aria-checked="<?php echo ($i === $current_rating) ? 'true' : 'false'; ?>">
-      ★
-    </button>
-  <?php endfor; ?>
-</div>
 
-          <span id="rating-status" class="prs-help" style="margin-left:8px;"></span>
+      <?php $current_rating = isset($ub->rating) && $ub->rating !== null ? (int)$ub->rating : 0; ?>
+      <div class="prs-field" id="fld-user-rating">
+        <div id="prs-user-rating" class="prs-stars" role="radiogroup" aria-label="<?php esc_attr_e('Your rating','politeia-reading'); ?>">
+          <?php for ($i=1; $i<=5; $i++): ?>
+            <button type="button"
+              class="prs-star<?php echo ($i <= $current_rating) ? ' is-active' : ''; ?>"
+              data-value="<?php echo $i; ?>"
+              role="radio"
+              aria-checked="<?php echo ($i === $current_rating) ? 'true' : 'false'; ?>">
+              ★
+            </button>
+          <?php endfor; ?>
         </div>
+        <span id="rating-status" class="prs-help" style="margin-left:8px;"></span>
+      </div>
 
       <!-- Pages -->
       <div class="prs-field" id="fld-pages">
-        <hr style="margin-bottom: 10px">
-        <span class="label"><?php esc_html_e('Pages', 'politeia-reading'); ?></span>
+        <hr style="margin-bottom:10px">
+        <span class="label"><?php esc_html_e('Pages','politeia-reading'); ?></span>
         <span id="pages-view"><?php echo $ub->pages ? (int)$ub->pages : '—'; ?></span>
-        <a href="#" id="pages-edit" class="prs-inline-actions"><?php esc_html_e('edit', 'politeia-reading'); ?></a>
+        <a href="#" id="pages-edit" class="prs-inline-actions"><?php esc_html_e('edit','politeia-reading'); ?></a>
         <span id="pages-form" style="display:none;" class="prs-inline-actions">
-          <input type="number" id="pages-input" min="1" style="width:120px"
-                 value="<?php echo $ub->pages ? (int)$ub->pages : ''; ?>" />
+          <input type="number" id="pages-input" min="1" style="width:120px" value="<?php echo $ub->pages ? (int)$ub->pages : ''; ?>" />
           <button type="button" id="pages-save" class="prs-btn" style="padding:4px 10px;">Save</button>
-          <button type="button" id="pages-cancel" class="prs-btn" style="padding:4px 10px; background:#777;">Cancel</button>
+          <button type="button" id="pages-cancel" class="prs-btn" style="padding:4px 10px;background:#777;">Cancel</button>
           <span id="pages-status" class="prs-help"></span>
         </span>
       </div>
 
       <!-- Purchase Date -->
       <div class="prs-field" id="fld-purchase-date">
-      <hr style="margin-bottom: 10px">
-        <span class="label"><?php esc_html_e('Purchase Date', 'politeia-reading'); ?></span>
+        <hr style="margin-bottom:10px">
+        <span class="label"><?php esc_html_e('Purchase Date','politeia-reading'); ?></span>
         <span id="purchase-date-view"><?php echo $ub->purchase_date ? esc_html($ub->purchase_date) : '—'; ?></span>
-        <a href="#" id="purchase-date-edit" class="prs-inline-actions"><?php esc_html_e('edit', 'politeia-reading'); ?></a>
+        <a href="#" id="purchase-date-edit" class="prs-inline-actions"><?php esc_html_e('edit','politeia-reading'); ?></a>
         <span id="purchase-date-form" style="display:none;" class="prs-inline-actions">
           <input type="date" id="purchase-date-input" value="<?php echo $ub->purchase_date ? esc_attr($ub->purchase_date) : ''; ?>" />
           <button type="button" id="purchase-date-save" class="prs-btn" style="padding:4px 10px;">Save</button>
-          <button type="button" id="purchase-date-cancel" class="prs-btn" style="padding:4px 10px; background:#777;">Cancel</button>
+          <button type="button" id="purchase-date-cancel" class="prs-btn" style="padding:4px 10px;background:#777;">Cancel</button>
           <span id="purchase-date-status" class="prs-help"></span>
         </span>
       </div>
 
       <!-- Purchase Channel + Which? -->
       <div class="prs-field" id="fld-purchase-channel">
-      <hr style="margin-bottom: 10px">
-        <span class="label"><?php esc_html_e('Purchase Channel', 'politeia-reading'); ?></span>
+        <hr style="margin-bottom:10px">
+        <span class="label"><?php esc_html_e('Purchase Channel','politeia-reading'); ?></span>
         <span id="purchase-channel-view">
           <?php
             $label = '—';
@@ -204,27 +211,27 @@ wp_enqueue_style( 'politeia-reading' );
             echo esc_html( $label );
           ?>
         </span>
-        <a href="#" id="purchase-channel-edit" class="prs-inline-actions"><?php esc_html_e('edit', 'politeia-reading'); ?></a>
+        <a href="#" id="purchase-channel-edit" class="prs-inline-actions"><?php esc_html_e('edit','politeia-reading'); ?></a>
         <span id="purchase-channel-form" style="display:none;" class="prs-inline-actions">
-        <div>
-          <select id="purchase-channel-select">
-            <option value=""><?php esc_html_e('Select…','politeia-reading'); ?></option>
-            <option value="online" <?php selected( $ub->purchase_channel, 'online' ); ?>><?php esc_html_e('Online','politeia-reading'); ?></option>
-            <option value="store"  <?php selected( $ub->purchase_channel, 'store' ); ?>><?php esc_html_e('Store','politeia-reading'); ?></option>
-          </select>
-          <input type="text" id="purchase-place-input" placeholder="<?php esc_attr_e('Which?','politeia-reading'); ?>"
-                 value="<?php echo $ub->purchase_place ? esc_attr($ub->purchase_place) : ''; ?>"
-                 style="display: <?php echo $ub->purchase_channel ? 'inline-block' : 'none'; ?>; margin-left:8px; width:220px;" />
+          <div>
+            <select id="purchase-channel-select">
+              <option value=""><?php esc_html_e('Select…','politeia-reading'); ?></option>
+              <option value="online" <?php selected( $ub->purchase_channel, 'online' ); ?>><?php esc_html_e('Online','politeia-reading'); ?></option>
+              <option value="store"  <?php selected( $ub->purchase_channel, 'store' );  ?>><?php esc_html_e('Store','politeia-reading'); ?></option>
+            </select>
+            <input type="text" id="purchase-place-input" placeholder="<?php esc_attr_e('Which?','politeia-reading'); ?>"
+                   value="<?php echo $ub->purchase_place ? esc_attr($ub->purchase_place) : ''; ?>"
+                   style="display: <?php echo $ub->purchase_channel ? 'inline-block' : 'none'; ?>; margin-left:8px; width:220px;" />
           </div>
           <button type="button" id="purchase-channel-save" class="prs-btn" style="padding:4px 10px;">Save</button>
-          <button type="button" id="purchase-channel-cancel" class="prs-btn" style="padding:4px 10px; background:#777;">Cancel</button>
+          <button type="button" id="purchase-channel-cancel" class="prs-btn" style="padding:4px 10px;background:#777;">Cancel</button>
           <span id="purchase-channel-status" class="prs-help"></span>
         </span>
       </div>
 
       <!-- Reading Status -->
       <div class="prs-field" id="fld-reading-status">
-      <hr style="margin-bottom: 10px">
+        <hr style="margin-bottom:10px">
         <label class="label" for="reading-status-select"><?php esc_html_e('Reading Status','politeia-reading'); ?></label>
         <select id="reading-status-select">
           <option value="not_started" <?php selected( $ub->reading_status, 'not_started' ); ?>><?php esc_html_e('Not Started','politeia-reading'); ?></option>
@@ -236,7 +243,7 @@ wp_enqueue_style( 'politeia-reading' );
 
       <!-- Owning Status (editable) + Contact (condicional) -->
       <div class="prs-field" id="fld-owning-status">
-      <hr style="margin-bottom: 10px">
+        <hr style="margin-bottom:10px">
         <label class="label" for="owning-status-select"><?php esc_html_e('Owning Status','politeia-reading'); ?></label>
         <select id="owning-status-select">
           <option value="" <?php selected( empty($ub->owning_status) ); ?>><?php esc_html_e('— Select —','politeia-reading'); ?></option>
@@ -254,7 +261,6 @@ wp_enqueue_style( 'politeia-reading' );
         <span id="owning-status-status" class="prs-help" style="margin-left:8px;"></span>
 
         <?php
-          // In Shelf derivado: '' (NULL) o 'borrowing' => contigo
           $is_in_shelf = ( empty($ub->owning_status) || $ub->owning_status === 'borrowing' );
         ?>
         <div class="prs-help" id="derived-location" style="margin:6px 0;">

@@ -142,3 +142,44 @@ span#purchase-channel-form {
     font-size:12px; color:#666;
   }
   
+
+  /* BOOK COVER MY BOOK SINGLE */
+
+  #prs-book-cover{ grid-column:1; grid-row:1 / span 2; padding:0; background:transparent; }
+
+  .prs-cover-frame{
+    position: relative;
+    width: 100%;
+    max-height: 450px; /* desktop */
+    overflow: hidden;
+    border-radius: 10px;
+    background: #eee;
+  }
+  .prs-cover-img{ width:100%; height:100%; object-fit:cover; display:block; }
+  .prs-cover-placeholder{ width:100%; height:100%; min-height:180px; background:#eee; }
+  
+  /* Botón centrado dentro del frame */
+  .prs-cover-overlay{
+    position:absolute; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    pointer-events:auto; /* ← así los botones siempre reciben el click */
+  }
+  #prs-cover-upload{
+    pointer-events:auto;
+    padding:10px 14px; border:none; border-radius:10px; cursor:pointer;
+    background:#111; color:#fff; box-shadow:none; outline:none;
+  }
+  #prs-cover-remove{
+    pointer-events:auto;
+    padding:10px 14px; border:none; border-radius:10px; cursor:pointer;
+    background:#777; color:#fff; box-shadow:none; outline:none; margin-left:8px;
+  }
+  
+  /* Mostrar overlay siempre si no hay imagen; o solo al hover si hay imagen */
+  .prs-cover-frame.has-image .prs-cover-overlay{ opacity:0; transition:opacity .2s; }
+  .prs-cover-frame.has-image:hover .prs-cover-overlay{ opacity:1; background:rgba(0,0,0,.25); }
+  
+  /* Tablet / Mobile max-heights */
+  @media (min-width:481px) and (max-width:900px){ .prs-cover-frame{ max-height:280px; } }
+  @media (max-width:480px){ .prs-cover-frame{ max-height:220px; } }
+  
