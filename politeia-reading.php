@@ -2,7 +2,7 @@
 /**
  * Plugin Name: Politeia Reading
  * Description: Manage "My Library" and Reading Sessions with custom tables and shortcodes.
- * Version: 0.1.0
+ * Version: 0.2.0
  * Author: Politeia
  * Text Domain: politeia-reading
  */
@@ -10,9 +10,21 @@
 if ( ! defined( 'ABSPATH' ) ) exit; // Exit if accessed directly
 
 // ===== Constants =====
-define( 'POLITEIA_READING_VERSION', '0.1.0' );
-define( 'POLITEIA_READING_PATH', plugin_dir_path( __FILE__ ) );
-define( 'POLITEIA_READING_URL',  plugin_dir_url( __FILE__ ) );
+if ( ! defined( 'POLITEIA_READING_VERSION' ) ) {
+    // ⬆️ Incrementa esta versión cuando cambies el schema para disparar migraciones
+    define( 'POLITEIA_READING_VERSION', '0.2.0' );
+}
+if ( ! defined( 'POLITEIA_READING_PATH' ) ) {
+    define( 'POLITEIA_READING_PATH', plugin_dir_path( __FILE__ ) );
+}
+if ( ! defined( 'POLITEIA_READING_URL' ) ) {
+    define( 'POLITEIA_READING_URL',  plugin_dir_url( __FILE__ ) );
+}
+
+// ===== i18n =====
+add_action( 'plugins_loaded', function () {
+    load_plugin_textdomain( 'politeia-reading', false, dirname( plugin_basename( __FILE__ ) ) . '/languages' );
+} );
 
 // ===== Includes =====
 require_once POLITEIA_READING_PATH . 'includes/class-activator.php';
@@ -22,9 +34,23 @@ require_once POLITEIA_READING_PATH . 'includes/class-user-books.php';
 require_once POLITEIA_READING_PATH . 'includes/class-reading-sessions.php';
 require_once POLITEIA_READING_PATH . 'includes/helpers.php';
 require_once POLITEIA_READING_PATH . 'templates/features/cover-upload/cover-upload.php';
+require_once POLITEIA_READING_PATH . 'includes/class-routes.php';
 
 // ===== Activation Hook =====
 register_activation_hook( __FILE__, [ 'Politeia_Reading_Activator', 'activate' ] );
+
+// ===== Upgrade / Migrations on load =====
+// Ejecuta migraciones idempotentes cuando cambias POLITEIA_READING_VERSION
+add_action( 'plugins_loaded', [ 'Politeia_Reading_Activator', 'maybe_upgrade' ] );
+
+// ===== Flush rewrites (una sola vez post-activación) =====
+add_action( 'admin_init', function () {
+    if ( get_option( 'politeia_reading_flush_rewrite' ) ) {
+        // Si tu plugin registra reglas (endpoints/slugs), aquí las tendrías ya cargadas
+        flush_rewrite_rules( false );
+        delete_option( 'politeia_reading_flush_rewrite' );
+    }
+} );
 
 // ===== Asset Registration / Enqueue =====
 add_action( 'wp_enqueue_scripts', function() {
@@ -75,4 +101,3 @@ add_action( 'wp_enqueue_scripts', function() {
 require_once POLITEIA_READING_PATH . 'shortcodes/add-book.php';
 require_once POLITEIA_READING_PATH . 'shortcodes/start-reading.php';
 require_once POLITEIA_READING_PATH . 'shortcodes/my-books.php';
-require_once POLITEIA_READING_PATH . 'includes/class-routes.php';

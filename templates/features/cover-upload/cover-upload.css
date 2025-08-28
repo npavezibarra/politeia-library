@@ -1,63 +1,103 @@
-/* Bloquea scroll al mostrar modal */
-body.prs-cu-lock{overflow:hidden}
-
-/* Modal */
-.prs-cu-modal[hidden]{display:none!important}
-.prs-cu-modal{
-  position:fixed; inset:0; z-index:9999;
-  background:rgba(0,0,0,.45);
-  display:flex; align-items:center; justify-content:center;
-  padding:20px;
-}
-.prs-cu-dialog{
-  width:min(92vw,740px); max-height:92vh;
-  background:#fff; border-radius:12px;
-  overflow:hidden; display:flex; flex-direction:column;
-}
-.prs-cu-title{margin:16px 20px; font-size:20px}
-.prs-cu-body{padding:0 20px 12px; overflow-y:auto}
-#prs-cu-file{margin-bottom:12px}
-
-/* Stage 8:15 (≈240x450) */
-.prs-cu-stage{
-  aspect-ratio:8/15;
-  width:min(80vw,420px);
-  background:#111; border-radius:12px;
-  position:relative; overflow:hidden;
-  margin:8px 0 12px;
+/* Overlay */
+.prs-cover-modal{
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,.5);
+  z-index: 100000;
+  display: grid;
+  place-items: center; /* centra todo el panel */
 }
 
-/* Imagen centrada + zoom uniforme sin distorsión
-   !important para ganar a estilos globales del theme */
-.prs-cu-img{
-  position:absolute; top:50%; left:50%;
-  transform:translate(-50%,-50%) scale(1);
-  transform-origin:center center;
-  width:auto!important; height:auto!important;
-  max-width:none!important; max-height:none!important;
-  image-rendering:auto; will-change:transform;
-  display:block;
+.prs-cover-modal__content{
+  background: #fff;
+  border-radius: 12px;
+  width: 720px;
+  max-width: calc(100vw - 32px);
+  max-height: calc(100vh - 32px);
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  box-shadow: 0 10px 30px rgba(0,0,0,.2);
 }
 
-.prs-cu-zoom{margin:6px 0 4px}
-.prs-cu-zoom label{display:block; margin:6px 0 4px}
-.prs-cu-actions{
-  display:flex; gap:10px; justify-content:flex-end;
-  padding:12px 20px 16px; border-top:1px solid #eee;
+/* Título + barra superior */
+.prs-cover-modal__title{
+  font-size: 20px;
+  font-weight: 700;
+  margin-bottom: 10px;
+}
+.prs-cover-modal__topbar{
+  display: flex;
+  align-items: center;
+  gap: 12px;
 }
 
-/* Botón en el frame de la portada */
-.prs-cover-btn{background:rgba(0,0,0,.85);color:#fff;border-radius:10px;padding:10px 14px}
-
-/* Overlay del frame en la página del libro */
-.prs-cover-frame{position:relative}
-.prs-cover-overlay{
-  position:absolute; inset:0;
-  display:flex; align-items:center; justify-content:center;
-  pointer-events:none;
+/* Stage centrado y más pequeño (280x450) */
+.prs-crop-wrap{
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 12px 0;
 }
-.prs-cover-overlay .prs-cover-btn{pointer-events:auto}
+.prs-crop-stage{
+  position: relative;
+  background: #111;
+  border-radius: 12px;
+  overflow: hidden;
+}
 
-/* Imagen final en el frame del libro */
-.prs-cover-img{width:100%; height:100%; object-fit:cover; display:block}
-.prs-cover-placeholder{width:100%; height:450px; background:#ddd; border-radius:12px}
+/* La imagen se centra y se escala desde el centro */
+.prs-crop-img{
+  position: absolute;
+  width: 100% !important;
+  height: auto !important;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%,-50%) scale(1);
+  will-change: transform;
+  image-rendering: auto;
+}
+
+/* Controles siempre visibles (sin scroll) */
+.prs-crop-controls{
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin: 8px 0 0;
+}
+.prs-crop-label{ color:#444; font-size:14px; }
+.prs-crop-slider{ width: 340px; }
+
+/* Footer */
+.prs-cover-modal__footer{
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 10px;
+}
+.prs-cover-status{
+  margin-right: auto;
+  color: #666;
+  font-size: 12px;
+}
+
+/* Botón del overlay sobre la portada */
+.prs-cover-btn{
+  padding: 8px 14px;
+  background: #222;
+  color: #fff;
+  border-radius: 10px;
+  border: none;
+  cursor: pointer;
+}
+.prs-cover-btn:hover{ background:#000; }
+
+/* Botón base ya usado en tu tema */
+.prs-btn{
+  background:#111; color:#fff; border:none; border-radius:10px;
+  padding:8px 14px; cursor:pointer;
+}
+.prs-btn--ghost{
+  background:#eee; color:#111;
+}

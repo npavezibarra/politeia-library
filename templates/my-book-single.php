@@ -13,7 +13,6 @@ $slug    = get_query_var('prs_book_slug');
 
 $tbl_b     = $wpdb->prefix . 'politeia_books';
 $tbl_ub    = $wpdb->prefix . 'politeia_user_books';
-$tbl_rs    = $wpdb->prefix . 'politeia_reading_sessions';
 $tbl_loans = $wpdb->prefix . 'politeia_loans';
 
 $book = $wpdb->get_row( $wpdb->prepare("SELECT * FROM {$tbl_b} WHERE slug=%s LIMIT 1", $slug) );
@@ -25,14 +24,6 @@ if ( ! $ub ) { status_header(403); echo '<div class="wrap"><h1>No access</h1><p>
 /** Contacto ya guardado (definir antes de localize) */
 $has_contact = ( ! empty($ub->counterparty_name) ) || ( ! empty($ub->counterparty_email) );
 
-/** Sesiones */
-$sessions = $wpdb->get_results( $wpdb->prepare("
-  SELECT id, start_time, end_time, start_page, end_page, chapter_name
-  FROM {$tbl_rs}
-  WHERE user_id=%d AND book_id=%d
-  ORDER BY start_time DESC
-", $user_id, $book->id) );
-
 /** Préstamo activo (fecha local) */
 $active_start_gmt = $wpdb->get_var( $wpdb->prepare(
   "SELECT start_date FROM {$tbl_loans}
@@ -42,13 +33,11 @@ $active_start_gmt = $wpdb->get_var( $wpdb->prepare(
 ) );
 $active_start_local = $active_start_gmt ? get_date_from_gmt( $active_start_gmt, 'Y-m-d' ) : '';
 
-function prs_hms($sec){
-  $h = floor($sec/3600); $m = floor(($sec%3600)/60); $s = $sec%60;
-  return sprintf('%02d:%02d:%02d', $h, $m, $s);
-}
-$total_pages = 0; $total_seconds = 0;
+/** Encolar assets */
+wp_enqueue_style( 'politeia-reading' );
+wp_enqueue_script( 'politeia-my-book' ); // asegúrate de registrar este JS en tu plugin/tema
 
-/** Assets */
+/** Datos al JS principal */
 wp_localize_script( 'politeia-my-book', 'PRS_BOOK', [
   'ajax_url'      => admin_url('admin-ajax.php'),
   'nonce'         => wp_create_nonce('prs_update_user_book_meta'),
@@ -58,8 +47,6 @@ wp_localize_script( 'politeia-my-book', 'PRS_BOOK', [
   'has_contact'   => $has_contact ? 1 : 0,
   'rating'        => isset($ub->rating) && $ub->rating !== null ? (int)$ub->rating : 0,
 ] );
-
-wp_enqueue_style( 'politeia-reading' );
 ?>
 <style>
   /* Maqueta general */
@@ -73,17 +60,14 @@ wp_enqueue_style( 'politeia-reading' );
   .prs-box{ background:#f9f9f9; padding:16px; min-height:120px; }
   #prs-book-cover{ grid-column:1; grid-row:1 / span 2; }
   #prs-book-info{ grid-column:2; grid-row:1; min-height:140px; }
-  #prs-session-recorder{ grid-column:3; grid-row:1; min-height:140px; }
+  #prs-session-recorder{ grid-column:3; grid-row:1; min-height:140px; background:#ffffff;
+    padding: 16px; border: 1px solid #dddddd; }
   #prs-reading-sessions{ grid-column:1 / 4; grid-row:3; min-height:320px; }
 
-  /* Frame portada — fijo 280x450 */
+  /* Frame portada */
   .prs-cover-frame{
-    position:relative;
-    width:100%;           /* ocupa los 280px de la columna */
-    height:450px;
-    overflow:hidden;
-    background:#eee;
-    border-radius:12px;
+    position:relative; width:100%; height:auto; overflow:hidden;
+    background:#eee; border-radius:12px;
   }
   .prs-cover-img{ width:100%; height:100%; object-fit:cover; display:block; }
   .prs-cover-placeholder{ width:100%; height:100%; background:#ddd; }
@@ -110,6 +94,10 @@ wp_enqueue_style( 'politeia-reading' );
   .prs-contact-actions{ grid-column:2; display:flex; align-items:center; gap:10px; }
   #owning-contact-view{ margin:6px 0 0 10px; color:#555; }
 
+  /* Paginación (parcial AJAX) */
+  .prs-pagination ul.page-numbers{ display:flex; gap:6px; list-style:none; justify-content: center; }
+  .prs-pagination .page-numbers{ padding:6px 10px; background:#fff; border:1px solid #ddd; border-radius:6px; text-decoration:none; width: fit-content; margin: auto; padding: 10px !important }
+  .prs-pagination .current{ font-weight:700; }
   @media (max-width: 900px){
     .prs-single-grid{ grid-template-columns: 1fr; grid-template-rows:auto; }
     #prs-book-cover{ grid-row:auto; }
@@ -124,26 +112,26 @@ wp_enqueue_style( 'politeia-reading' );
 
   <div class="prs-single-grid">
 
-<!-- Columna izquierda: portada -->
-<div id="prs-book-cover" class="prs-box">
-  <?php
-    $user_cover_id  = isset($ub->cover_attachment_id_user) ? (int)$ub->cover_attachment_id_user : 0;
-    $canon_cover_id = isset($book->cover_attachment_id)    ? (int)$book->cover_attachment_id    : 0;
-    $final_cover_id = $user_cover_id ?: $canon_cover_id;
-    $has_image      = $final_cover_id > 0;
-  ?>
-  <div id="prs-cover-frame" class="prs-cover-frame <?php echo $has_image ? 'has-image' : ''; ?>">
-    <?php if ($has_image): ?>
-      <?php echo wp_get_attachment_image($final_cover_id,'large',false,
-        ['class'=>'prs-cover-img','alt'=>esc_attr($book->title),'id'=>'prs-cover-img']); ?>
-    <?php else: ?>
-      <div id="prs-cover-placeholder" class="prs-cover-placeholder"></div>
-    <?php endif; ?>
-    <div class="prs-cover-overlay">
-      <?php echo do_shortcode('[prs_cover_button]'); ?>
+    <!-- Columna izquierda: portada -->
+    <div id="prs-book-cover" class="prs-box">
+      <?php
+        $user_cover_id  = isset($ub->cover_attachment_id_user) ? (int)$ub->cover_attachment_id_user : 0;
+        $canon_cover_id = isset($book->cover_attachment_id)    ? (int)$book->cover_attachment_id    : 0;
+        $final_cover_id = $user_cover_id ?: $canon_cover_id;
+        $has_image      = $final_cover_id > 0;
+      ?>
+      <div id="prs-cover-frame" class="prs-cover-frame <?php echo $has_image ? 'has-image' : ''; ?>">
+        <?php if ($has_image): ?>
+          <?php echo wp_get_attachment_image($final_cover_id,'large',false,
+            ['class'=>'prs-cover-img','alt'=>esc_attr($book->title),'id'=>'prs-cover-img']); ?>
+        <?php else: ?>
+          <div id="prs-cover-placeholder" class="prs-cover-placeholder"></div>
+        <?php endif; ?>
+        <div class="prs-cover-overlay">
+          <?php echo do_shortcode('[prs_cover_button]'); ?>
+        </div>
+      </div>
     </div>
-  </div>
-</div>
 
     <!-- Arriba centro: título/info y metacampos -->
     <div id="prs-book-info" class="prs-box">
@@ -261,7 +249,8 @@ wp_enqueue_style( 'politeia-reading' );
         <span id="owning-status-status" class="prs-help" style="margin-left:8px;"></span>
 
         <?php
-          $is_in_shelf = ( empty($ub->owning_status) || $ub->owning_status === 'borrowing' );
+          // "In Shelf" es derivado solo cuando owning_status es NULL/''
+          $is_in_shelf = empty($ub->owning_status);
         ?>
         <div class="prs-help" id="derived-location" style="margin:6px 0;">
           <strong><?php esc_html_e('Location','politeia-reading'); ?>:</strong>
@@ -303,53 +292,24 @@ wp_enqueue_style( 'politeia-reading' );
       <?php echo do_shortcode( '[politeia_start_reading book_id="'. (int)$book->id .'"]' ); ?>
     </div>
 
-    <!-- Fila completa: Reading Sessions -->
+    <!-- Fila completa: Reading Sessions (AJAX) -->
     <div id="prs-reading-sessions" class="prs-box">
       <h2><?php esc_html_e('Reading Sessions','politeia-reading'); ?></h2>
-
-      <?php if ( $sessions ): ?>
-        <table class="prs-table">
-          <thead>
-          <tr>
-            <th><?php esc_html_e('Start','politeia-reading'); ?></th>
-            <th><?php esc_html_e('End','politeia-reading'); ?></th>
-            <th><?php esc_html_e('Duration','politeia-reading'); ?></th>
-            <th><?php esc_html_e('Start Pg','politeia-reading'); ?></th>
-            <th><?php esc_html_e('End Pg','politeia-reading'); ?></th>
-            <th><?php esc_html_e('Pages','politeia-reading'); ?></th>
-            <th><?php esc_html_e('Chapter','politeia-reading'); ?></th>
-          </tr>
-          </thead>
-          <tbody>
-          <?php foreach ( $sessions as $s ):
-            $sec   = max(0, strtotime($s->end_time) - strtotime($s->start_time));
-            $pages = max(0, (int)$s->end_page - (int)$s->start_page);
-            $total_seconds += $sec; $total_pages += $pages;
-            ?>
-            <tr>
-              <td><?php echo esc_html( get_date_from_gmt( $s->start_time, 'Y-m-d H:i' ) ); ?></td>
-              <td><?php echo esc_html( get_date_from_gmt( $s->end_time, 'Y-m-d H:i' ) ); ?></td>
-              <td><?php echo prs_hms($sec); ?></td>
-              <td><?php echo (int)$s->start_page; ?></td>
-              <td><?php echo (int)$s->end_page; ?></td>
-              <td><?php echo $pages; ?></td>
-              <td><?php echo $s->chapter_name ? esc_html($s->chapter_name) : '—'; ?></td>
-            </tr>
-          <?php endforeach; ?>
-          </tbody>
-          <tfoot>
-          <tr>
-            <th colspan="2" style="text-align:right"><?php esc_html_e('Totals:','politeia-reading'); ?></th>
-            <th><?php echo prs_hms($total_seconds); ?></th>
-            <th></th><th></th>
-            <th><?php echo (int)$total_pages; ?></th>
-            <th></th>
-          </tr>
-          </tfoot>
-        </table>
-      <?php else: ?>
-        <p><?php esc_html_e('No sessions yet.','politeia-reading'); ?></p>
-      <?php endif; ?>
+      <?php
+        $prs_sess_nonce = wp_create_nonce('prs_sessions_nonce');
+        // Página inicial desde la URL (se respetará con replaceState)
+        $initial_paged = isset($_GET['prs_sess']) ? max(1, absint($_GET['prs_sess'])) : 1;
+      ?>
+      <div id="prs-sessions-table" data-initial-paged="<?php echo (int) $initial_paged; ?>"></div>
+      <script>
+        // Config para el loader AJAX de sesiones (lo usa assets/js/my-book.js)
+        window.PRS_SESS = {
+          ajax_url: "<?php echo esc_js( admin_url('admin-ajax.php') ); ?>",
+          nonce:    "<?php echo esc_js( $prs_sess_nonce ); ?>",
+          book_id:  <?php echo (int) $book->id; ?>,
+          param:    "prs_sess"
+        };
+      </script>
     </div>
 
   </div>

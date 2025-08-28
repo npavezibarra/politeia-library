@@ -1,406 +1,432 @@
-/* global PRS_BOOK */
-document.addEventListener('DOMContentLoaded', () => {
-  // ====== util ======
-  const NEEDS_CONTACT = new Set(['borrowed', 'borrowing', 'sold']);
-  const $ = (sel) => document.querySelector(sel);
+/* global PRS_BOOK, PRS_SESS */
 
-  async function postMeta(payload) {
-    const body = new URLSearchParams({
-      action: 'prs_update_user_book_meta',
-      nonce: PRS_BOOK.nonce,
-      user_book_id: PRS_BOOK.user_book_id,
-      ...payload
-    });
-    const res = await fetch(PRS_BOOK.ajax_url, {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8' },
-      body
-    });
-    return res.json();
-  }
-
-  // ====== ELEMENTOS ======
-  // Pages
-  const $pagesView   = $('#pages-view');
-  const $pagesEdit   = $('#pages-edit');
-  const $pagesForm   = $('#pages-form');
-  const $pagesInput  = $('#pages-input');
-  const $pagesSave   = $('#pages-save');
-  const $pagesCancel = $('#pages-cancel');
-  const $pagesMsg    = $('#pages-status');
-
-  // Purchase date
-  const $pdView   = $('#purchase-date-view');
-  const $pdEdit   = $('#purchase-date-edit');
-  const $pdForm   = $('#purchase-date-form');
-  const $pdInput  = $('#purchase-date-input');
-  const $pdSave   = $('#purchase-date-save');
-  const $pdCancel = $('#purchase-date-cancel');
-  const $pdMsg    = $('#purchase-date-status');
-
-  // Purchase channel
-  const $pcView   = $('#purchase-channel-view');
-  const $pcEdit   = $('#purchase-channel-edit');
-  const $pcForm   = $('#purchase-channel-form');
-  const $pcSelect = $('#purchase-channel-select');
-  const $pcPlace  = $('#purchase-place-input');
-  const $pcSave   = $('#purchase-channel-save');
-  const $pcCancel = $('#purchase-channel-cancel');
-  const $pcMsg    = $('#purchase-channel-status');
-
-  // Reading status
-  const $readingSelect = $('#reading-status-select');
-  const $readingMsg    = $('#reading-status-status');
-
-  // Owning + contact
-  const $owningSelect = $('#owning-status-select');
-  const $owningMsg    = $('#owning-status-status');
-  const $returnBtn    = $('#owning-return-shelf');
-
-  const $contactForm  = $('#owning-contact-form');
-  const $contactName  = $('#owning-contact-name');
-  const $contactEmail = $('#owning-contact-email');
-  const $contactSave  = $('#owning-contact-save');
-  const $contactMsg   = $('#owning-contact-status');
-  const $contactView  = $('#owning-contact-view');
-
-  // Derived "Location"
-  const $locText = $('#derived-location-text');
-
-  // ====== helpers ======
-  const setText = (el, txt) => { if (el) el.textContent = txt; };
-  const showEl = (el, show) => { if (el) el.style.display = show ? 'block' : 'none'; };
-  const showInline = (el, show) => { if (el) el.style.display = show ? 'inline-block' : 'none'; };
-  const isValidEmail = (e) => !e || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
-
-  function hasContact() {
-    if (typeof PRS_BOOK !== 'undefined' && 'has_contact' in PRS_BOOK) return !!Number(PRS_BOOK.has_contact);
-    const n = ($contactName?.value || '').trim();
-    const e = ($contactEmail?.value || '').trim();
-    const v = ($contactView?.textContent || '').trim();
-    return !!(n || e || v);
-  }
-
-  function setLocationDerived(val) {
-    const inShelf = (!val || val === 'borrowing'); // default/'' or borrowing => contigo
-    setText($locText, inShelf ? 'In Shelf' : 'Not In Shelf');
-  }
-
-  function toggleContactVisibility(val, fromChange = false) {
-    if (!$contactForm) return;
-    const need = NEEDS_CONTACT.has(val);
-    if (fromChange) showEl($contactForm, need);
-    else showEl($contactForm, need && !hasContact());
-    if (need) updateContactSaveState();
-  }
-
-  function toggleReturnBtn(val) {
-    if (!$returnBtn) return;
-    $returnBtn.style.display = (val === 'borrowed' || val === 'borrowing') ? 'inline-block' : 'none';
-  }
-
-  // ====== Pages ======
-  $pagesEdit?.addEventListener('click', (e) => {
-    e.preventDefault();
-    showInline($pagesForm, true);
-    showInline($pagesEdit, false);
-    $pagesInput?.focus();
-  });
-  $pagesCancel?.addEventListener('click', () => {
-    showInline($pagesForm, false);
-    showInline($pagesEdit, true);
-    setText($pagesMsg, '');
-  });
-  $pagesSave?.addEventListener('click', async () => {
-    const v = parseInt($pagesInput?.value || '', 10);
-    setText($pagesMsg, 'Saving…');
-    try {
-      const out = await postMeta({ pages: isFinite(v) && v > 0 ? v : '' });
-      if (out?.success) {
-        setText($pagesView, isFinite(v) && v > 0 ? String(v) : '—');
-        setText($pagesMsg, 'Saved');
-        showInline($pagesForm, false);
-        showInline($pagesEdit, true);
-      } else setText($pagesMsg, out?.message || 'Error');
-    } catch { setText($pagesMsg, 'Error'); }
-  });
-
-  // ====== Purchase date ======
-  $pdEdit?.addEventListener('click', (e) => {
-    e.preventDefault();
-    showInline($pdForm, true);
-    showInline($pdEdit, false);
-    $pdInput?.focus();
-  });
-  $pdCancel?.addEventListener('click', () => {
-    showInline($pdForm, false);
-    showInline($pdEdit, true);
-    setText($pdMsg, '');
-  });
-  $pdSave?.addEventListener('click', async () => {
-    const v = ($pdInput?.value || '').trim();
-    setText($pdMsg, 'Saving…');
-    try {
-      const out = await postMeta({ purchase_date: v });
-      if (out?.success) {
-        setText($pdView, v || '—');
-        setText($pdMsg, 'Saved');
-        showInline($pdForm, false);
-        showInline($pdEdit, true);
-      } else setText($pdMsg, out?.message || 'Error');
-    } catch { setText($pdMsg, 'Error'); }
-  });
-
-  // ====== Purchase channel ======
-  $pcEdit?.addEventListener('click', (e) => {
-    e.preventDefault();
-    showInline($pcForm, true);
-    showInline($pcEdit, false);
-  });
-  $pcCancel?.addEventListener('click', () => {
-    showInline($pcForm, false);
-    showInline($pcEdit, true);
-    setText($pcMsg, '');
-  });
-  $pcSelect?.addEventListener('change', () => {
-    showInline($pcPlace, !!($pcSelect?.value || '').trim());
-  });
-  $pcSave?.addEventListener('click', async () => {
-    const ch = ($pcSelect?.value || '').trim();
-    const pl = ($pcPlace?.value || '').trim();
-    setText($pcMsg, 'Saving…');
-    try {
-      const out = await postMeta({ purchase_channel: ch, purchase_place: pl });
-      if (out?.success) {
-        const label = ch ? (ch.charAt(0).toUpperCase() + ch.slice(1)) + (pl ? ' — ' + pl : '') : '—';
-        setText($pcView, label);
-        setText($pcMsg, 'Saved');
-        showInline($pcForm, false);
-        showInline($pcEdit, true);
-      } else setText($pcMsg, out?.message || 'Error');
-    } catch { setText($pcMsg, 'Error'); }
-  });
-
-  // ====== Reading status ======
-  $readingSelect?.addEventListener('change', async () => {
-    const val = $readingSelect.value;
-    setText($readingMsg, 'Saving…');
-    try {
-      const out = await postMeta({ reading_status: val });
-      setText($readingMsg, out?.success ? 'Saved' : (out?.message || 'Error'));
-    } catch { setText($readingMsg, 'Error'); }
-  });
-
-  // ====== Owning + contact ======
-  function setStatusUI(val, fromChange) {
-    setLocationDerived(val);
-    toggleContactVisibility(val, fromChange);
-    toggleReturnBtn(val);
-  }
-
-  $owningSelect?.addEventListener('change', async () => {
-    const val = ($owningSelect.value || '').trim();
-    setText($owningMsg, 'Saving…');
-    try {
-      const out = await postMeta({ owning_status: val });
-      if (out?.success) {
-        setText($owningMsg, 'Saved');
-        setStatusUI(val, true);
-        if (!NEEDS_CONTACT.has(val)) showEl($contactForm, false);
-
-        // if returned to shelf, clear contact line
-        if (val === '') {
-          if ($contactView)  $contactView.textContent = '';
-          if (typeof PRS_BOOK !== 'undefined') PRS_BOOK.has_contact = 0;
-        }
-      } else {
-        setText($owningMsg, out?.message || 'Error');
-      }
-    } catch {
-      setText($owningMsg, 'Error');
-    }
-  });
-
-  // Return to shelf (owning_status = '')
-  $returnBtn?.addEventListener('click', async () => {
-    setText($owningMsg, 'Saving…');
-    try {
-      const out = await postMeta({ owning_status: '' });
-      if (out?.success) {
-        if ($owningSelect) $owningSelect.value = '';
-        setText($owningMsg, 'Saved');
-        setStatusUI('', true);
-        showEl($contactForm, false);
-
-        // clear contact view + inputs + memory
-        if ($contactView)  $contactView.textContent = '';
-        if ($contactName)  $contactName.value = '';
-        if ($contactEmail) $contactEmail.value = '';
-        if (typeof PRS_BOOK !== 'undefined') PRS_BOOK.has_contact = 0;
-      } else {
-        setText($owningMsg, out?.message || 'Error');
-      }
-    } catch {
-      setText($owningMsg, 'Error');
-    }
-  });
-
-  // ---- Contact validation ----
-  function updateContactSaveState() {
-    if (!$contactSave) return;
-    const name  = ($contactName?.value || '').trim();
-    const email = ($contactEmail?.value || '').trim();
-    const enabled = (name || email) && isValidEmail(email);
-    $contactSave.disabled = !enabled;
-  }
-  [$contactName, $contactEmail].forEach($el => {
-    $el?.addEventListener('input', updateContactSaveState);
-  });
-
-  // Guardar contacto
-  async function saveContact() {
-    const name  = ($contactName?.value || '').trim();
-    const email = ($contactEmail?.value || '').trim();
-
-    if (!name && !email) { setText($contactMsg, 'Enter a name or an email'); return; }
-    if (!isValidEmail(email)) { setText($contactMsg, 'Invalid email'); return; }
-
-    setText($contactMsg, 'Saving…');
-    $contactSave?.setAttribute('disabled', 'disabled');
-    try {
-      const out = await postMeta({ counterparty_name: name, counterparty_email: email });
-      if (out?.success) {
-        const parts = [];
-        if (name) parts.push(name);
-        if (email) parts.push(email);
-        if ($contactView) $contactView.textContent = parts.join(' · ');
-        if (typeof PRS_BOOK !== 'undefined') PRS_BOOK.has_contact = 1;
-        showEl($contactForm, false);
-        setText($contactMsg, 'Saved');
-      } else {
-        setText($contactMsg, out?.message || 'Error');
-      }
-    } catch {
-      setText($contactMsg, 'Error');
-    } finally {
-      $contactSave?.removeAttribute('disabled');
-      updateContactSaveState();
-    }
-  }
-  $contactSave?.addEventListener('click', saveContact);
-  [$contactName, $contactEmail].forEach($el => $el?.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); saveContact(); }
-  }));
-
-  // ====== Estado inicial ======
-  const initialStatus = (PRS_BOOK.owning_status || '').trim();
-  setStatusUI(initialStatus, false);
-  showInline($pcPlace, !!($pcSelect?.value || '').trim());
-  updateContactSaveState(); // inicia Save deshabilitado si corresponde
-});
-
-
-// ====== USER RATING (stars) ======
+/**
+ * Utilidades
+ */
 (function () {
-  const $wrap = document.getElementById('prs-user-rating');
-  const $msg  = document.getElementById('rating-status');
-  if (!$wrap) return;
+  "use strict";
 
-  let current = Number(PRS_BOOK && Number.isInteger(PRS_BOOK.rating) ? PRS_BOOK.rating : NaN);
-  if (!Number.isInteger(current)) {
-    current = $wrap.querySelectorAll('.prs-star.is-active').length || 0;
-  }
+  // ---------- Helpers ----------
+  function qs(sel, root) { return (root || document).querySelector(sel); }
+  function qsa(sel, root) { return Array.prototype.slice.call((root || document).querySelectorAll(sel)); }
 
-  function setText(el, t){ if(el) el.textContent = t || ''; }
-  async function postMeta(payload){
-    const body = new URLSearchParams({
-      action:'prs_update_user_book_meta',
-      nonce: PRS_BOOK.nonce,
-      user_book_id: PRS_BOOK.user_book_id,
-      ...payload
-    });
-    const res = await fetch(PRS_BOOK.ajax_url, {
-      method:'POST',
-      credentials:'same-origin',
-      headers:{'Content-Type':'application/x-www-form-urlencoded; charset=UTF-8'},
-      body
-    });
-    return res.json();
-  }
+  function setText(el, txt) { if (el) el.textContent = txt; }
+  function show(el) { if (el) el.style.display = ""; }
+  function hide(el) { if (el) el.style.display = "none"; }
 
-  function paint(n){
-    const btns = $wrap.querySelectorAll('button[data-value]');
-    btns.forEach(btn => {
-      const v = Number(btn.dataset.value);
-      btn.classList.toggle('is-active', v <= n);
-      btn.setAttribute('aria-checked', v === n ? 'true' : 'false');
-      btn.tabIndex = (v === (n || 1)) ? 0 : -1;
-    });
-  }
-
-  $wrap.addEventListener('mouseover', e => {
-    const b = e.target.closest('button[data-value]');
-    if (!b) return;
-    paint(Number(b.dataset.value));
-  });
-  $wrap.addEventListener('mouseout', () => paint(current));
-
-  $wrap.addEventListener('click', async e => {
-    const b = e.target.closest('button[data-value]');
-    if (!b) return;
-    const val = Number(b.dataset.value);
-    setText($msg, 'Saving…');
-    try{
-        const out = await postMeta({ rating: val });
-        if (out?.success){
-          current = val;
-          PRS_BOOK.rating = val;
-          paint(current);
-          setText($msg, 'Saved');
-        } else {
-          setText($msg, out?.message || 'Error');
-          paint(current);
-        }
-    } catch {
-      setText($msg, 'Error');
-      paint(current);
+  function setStatus(el, msg, ok = true, ttl = 2000) {
+    if (!el) return;
+    el.textContent = msg || "";
+    el.style.color = ok ? "#2f6b2f" : "#b00020";
+    if (ttl > 0) {
+      setTimeout(() => { el.textContent = ""; }, ttl);
     }
-  });
+  }
 
-  $wrap.addEventListener('keydown', async e => {
-    const keys = ['ArrowLeft','ArrowDown','ArrowRight','ArrowUp','Home','End',' ','Enter'];
-    if (!keys.includes(e.key)) return;
-    e.preventDefault();
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowDown') {
-      paint(Math.max(1, (current || 1) - 1));
-    } else if (e.key === 'ArrowRight' || e.key === 'ArrowUp') {
-      paint(Math.min(5, (current || 0) + 1));
-    } else if (e.key === 'Home') {
-      paint(1);
-    } else if (e.key === 'End') {
-      paint(5);
-    } else if (e.key === ' ' || e.key === 'Enter') {
-      const active = Number($wrap.querySelector('button.is-active:last-of-type')?.dataset.value || current || 0);
-      setText($msg, 'Saving…');
-      try{
-        const out = await postMeta({ rating: active });
-        if (out?.success){
-          current = active;
-          PRS_BOOK.rating = active;
-          paint(current);
-          setText($msg, 'Saved');
-        } else {
-          setText($msg, out?.message || 'Error');
-          paint(current);
-        }
-      } catch {
-        setText($msg, 'Error');
-        paint(current);
+  function ajaxPost(url, data) {
+    return fetch(url, {
+      method: "POST",
+      body: data,
+      credentials: "same-origin",
+    }).then(r => r.json());
+  }
+
+  function num(val, defVal = 0) {
+    const n = parseInt(val, 10);
+    return Number.isFinite(n) ? n : defVal;
+  }
+
+  // ---------- Edición: Pages ----------
+  function setupPages() {
+    const wrap = qs("#fld-pages");
+    if (!wrap || !window.PRS_BOOK) return;
+
+    const view = qs("#pages-view", wrap);
+    const editBtn = qs("#pages-edit", wrap);
+    const form = qs("#pages-form", wrap);
+    const input = qs("#pages-input", wrap);
+    const saveBtn = qs("#pages-save", wrap);
+    const cancelBtn = qs("#pages-cancel", wrap);
+    const status = qs("#pages-status", wrap);
+
+    if (editBtn) editBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      hide(editBtn);
+      show(form);
+      input.focus();
+      input.select();
+    });
+
+    if (cancelBtn) cancelBtn.addEventListener("click", () => {
+      show(editBtn);
+      hide(form);
+      setStatus(status, "", true, 0);
+    });
+
+    if (saveBtn) saveBtn.addEventListener("click", () => {
+      const pages = Math.max(0, num(input.value, 0));
+      const fd = new FormData();
+      fd.append("action", "prs_update_user_book_meta");
+      fd.append("nonce", PRS_BOOK.nonce);
+      fd.append("user_book_id", String(PRS_BOOK.user_book_id));
+      fd.append("pages", String(pages));
+
+      ajaxPost(PRS_BOOK.ajax_url, fd)
+        .then(json => {
+          if (!json || !json.success) throw json;
+          setText(view, pages > 0 ? String(pages) : "—");
+          setStatus(status, "Saved.", true);
+          // cerrar editor
+          show(editBtn);
+          hide(form);
+        })
+        .catch(err => {
+          const msg = (err && err.data && err.data.message) ? err.data.message : "Error saving.";
+          setStatus(status, msg, false, 4000);
+        });
+    });
+  }
+
+  // ---------- Edición: Purchase Date ----------
+  function setupPurchaseDate() {
+    const wrap = qs("#fld-purchase-date");
+    if (!wrap || !window.PRS_BOOK) return;
+
+    const view = qs("#purchase-date-view", wrap);
+    const editBtn = qs("#purchase-date-edit", wrap);
+    const form = qs("#purchase-date-form", wrap);
+    const input = qs("#purchase-date-input", wrap);
+    const saveBtn = qs("#purchase-date-save", wrap);
+    const cancelBtn = qs("#purchase-date-cancel", wrap);
+    const status = qs("#purchase-date-status", wrap);
+
+    if (editBtn) editBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      hide(editBtn);
+      show(form);
+      input.showPicker && input.showPicker();
+    });
+
+    if (cancelBtn) cancelBtn.addEventListener("click", () => {
+      show(editBtn);
+      hide(form);
+      setStatus(status, "", true, 0);
+    });
+
+    if (saveBtn) saveBtn.addEventListener("click", () => {
+      const dateVal = (input.value || "").trim(); // YYYY-MM-DD or empty
+      const fd = new FormData();
+      fd.append("action", "prs_update_user_book_meta");
+      fd.append("nonce", PRS_BOOK.nonce);
+      fd.append("user_book_id", String(PRS_BOOK.user_book_id));
+      fd.append("purchase_date", dateVal);
+
+      ajaxPost(PRS_BOOK.ajax_url, fd)
+        .then(json => {
+          if (!json || !json.success) throw json;
+          setText(view, dateVal ? dateVal : "—");
+          setStatus(status, "Saved.", true);
+          show(editBtn);
+          hide(form);
+        })
+        .catch(err => {
+          const msg = (err && err.data && err.data.message) ? err.data.message : "Error saving date.";
+          setStatus(status, msg, false, 4000);
+        });
+    });
+  }
+
+  // ---------- Edición: Purchase Channel + Place ----------
+  function setupPurchaseChannel() {
+    const wrap = qs("#fld-purchase-channel");
+    if (!wrap || !window.PRS_BOOK) return;
+
+    const view = qs("#purchase-channel-view", wrap);
+    const editBtn = qs("#purchase-channel-edit", wrap);
+    const form = qs("#purchase-channel-form", wrap);
+    const select = qs("#purchase-channel-select", wrap);
+    const place = qs("#purchase-place-input", wrap);
+    const saveBtn = qs("#purchase-channel-save", wrap);
+    const cancelBtn = qs("#purchase-channel-cancel", wrap);
+    const status = qs("#purchase-channel-status", wrap);
+
+    function adjustPlaceVisibility() {
+      if (!place) return;
+      const v = (select.value || "").trim();
+      place.style.display = v ? "inline-block" : "none";
+    }
+
+    if (editBtn) editBtn.addEventListener("click", (e) => {
+      e.preventDefault();
+      hide(editBtn);
+      show(form);
+      adjustPlaceVisibility();
+      select.focus();
+    });
+
+    if (cancelBtn) cancelBtn.addEventListener("click", () => {
+      show(editBtn);
+      hide(form);
+      setStatus(status, "", true, 0);
+    });
+
+    if (select) select.addEventListener("change", adjustPlaceVisibility);
+
+    if (saveBtn) saveBtn.addEventListener("click", () => {
+      const channel = (select.value || "").trim(); // "online" | "store" | ""
+      const placeVal = (place && place.value || "").trim();
+
+      const fd = new FormData();
+      fd.append("action", "prs_update_user_book_meta");
+      fd.append("nonce", PRS_BOOK.nonce);
+      fd.append("user_book_id", String(PRS_BOOK.user_book_id));
+      fd.append("purchase_channel", channel);
+      fd.append("purchase_place", placeVal);
+
+      ajaxPost(PRS_BOOK.ajax_url, fd)
+        .then(json => {
+          if (!json || !json.success) throw json;
+          let label = "—";
+          if (channel) {
+            label = channel.charAt(0).toUpperCase() + channel.slice(1);
+            if (placeVal) label += " — " + placeVal;
+          }
+          setText(view, label);
+          setStatus(status, "Saved.", true);
+          show(editBtn);
+          hide(form);
+        })
+        .catch(err => {
+          const msg = (err && err.data && err.data.message) ? err.data.message : "Error saving channel.";
+          setStatus(status, msg, false, 4000);
+        });
+    });
+  }
+
+  // ---------- Rating (stars) ----------
+  function setupRating() {
+    const wrap = qs("#fld-user-rating");
+    if (!wrap || !window.PRS_BOOK) return;
+
+    const stars = qsa("#prs-user-rating .prs-star", wrap);
+    const status = qs("#rating-status", wrap);
+
+    function paint(upTo) {
+      stars.forEach((btn, i) => {
+        const on = (i + 1) <= upTo;
+        btn.classList.toggle("is-active", on);
+        btn.setAttribute("aria-checked", on ? "true" : "false");
+      });
+    }
+
+    stars.forEach((btn, idx) => {
+      btn.addEventListener("click", () => {
+        const val = idx + 1;
+        const fd = new FormData();
+        fd.append("action", "prs_update_user_book_meta");
+        fd.append("nonce", PRS_BOOK.nonce);
+        fd.append("user_book_id", String(PRS_BOOK.user_book_id));
+        fd.append("rating", String(val));
+
+        ajaxPost(PRS_BOOK.ajax_url, fd)
+          .then(json => {
+            if (!json || !json.success) throw json;
+            paint(val);
+            setStatus(status, "Saved.", true);
+          })
+          .catch(err => {
+            const msg = (err && err.data && err.data.message) ? err.data.message : "Error saving rating.";
+            setStatus(status, msg, false, 4000);
+          });
+      });
+    });
+  }
+
+  // ---------- Reading Status ----------
+  function setupReadingStatus() {
+    const wrap = qs("#fld-reading-status");
+    if (!wrap || !window.PRS_BOOK) return;
+
+    const select = qs("#reading-status-select", wrap);
+    const status = qs("#reading-status-status", wrap);
+
+    if (!select) return;
+
+    select.addEventListener("change", () => {
+      const val = (select.value || "not_started").trim();
+      const fd = new FormData();
+      fd.append("action", "prs_update_user_book_meta");
+      fd.append("nonce", PRS_BOOK.nonce);
+      fd.append("user_book_id", String(PRS_BOOK.user_book_id));
+      fd.append("reading_status", val);
+
+      ajaxPost(PRS_BOOK.ajax_url, fd)
+        .then(json => {
+          if (!json || !json.success) throw json;
+          setStatus(status, "Saved.", true);
+        })
+        .catch(err => {
+          const msg = (err && err.data && err.data.message) ? err.data.message : "Error updating status.";
+          setStatus(status, msg, false, 4000);
+        });
+    });
+  }
+
+  // ---------- Owning Status + Return to shelf + Contact ----------
+  function setupOwningStatus() {
+    const wrap = qs("#fld-owning-status");
+    if (!wrap || !window.PRS_BOOK) return;
+
+    const select = qs("#owning-status-select", wrap);
+    const status = qs("#owning-status-status", wrap);
+    const returnBtn = qs("#owning-return-shelf", wrap);
+    const derivedText = qs("#derived-location-text", wrap);
+    const contactForm = qs("#owning-contact-form", wrap);
+    const contactName = qs("#owning-contact-name", wrap);
+    const contactEmail = qs("#owning-contact-email", wrap);
+    const contactSave = qs("#owning-contact-save", wrap);
+    const contactStatus = qs("#owning-contact-status", wrap);
+    const contactView = qs("#owning-contact-view", wrap);
+
+    function updateDerived(val) {
+      const inShelf = !val; // NULL/'' => In Shelf
+      setText(derivedText, inShelf ? "In Shelf" : "Not In Shelf");
+      // botón "Mark as returned" visible solo si borrowed/borrowing
+      const showReturn = (val === "borrowed" || val === "borrowing");
+      returnBtn && (returnBtn.style.display = showReturn ? "" : "none");
+
+      // contacto requerido si borrowed/borrowing/sold y faltan datos => mostramos form
+      const needsContact = (val === "borrowed" || val === "borrowing" || val === "sold");
+      if (needsContact) {
+        show(contactForm);
+      } else {
+        hide(contactForm);
       }
     }
-  });
 
-  // estado inicial
-  paint(current);
+    function postOwning(val) {
+      const fd = new FormData();
+      fd.append("action", "prs_update_user_book_meta");
+      fd.append("nonce", PRS_BOOK.nonce);
+      fd.append("user_book_id", String(PRS_BOOK.user_book_id));
+      fd.append("owning_status", val); // "" => volver a In Shelf
+
+      return ajaxPost(PRS_BOOK.ajax_url, fd)
+        .then(json => {
+          if (!json || !json.success) throw json;
+          setStatus(status, "Saved.", true);
+          updateDerived(val);
+        })
+        .catch(err => {
+          const msg = (err && err.data && err.data.message) ? err.data.message : "Error updating owning status.";
+          setStatus(status, msg, false, 4000);
+        });
+    }
+
+    if (select) {
+      updateDerived(select.value || "");
+      select.addEventListener("change", () => {
+        const val = (select.value || "").trim(); // "", borrowed, borrowing, sold, lost
+        postOwning(val);
+      });
+    }
+
+    if (returnBtn) {
+      returnBtn.addEventListener("click", () => {
+        // Volver a In Shelf
+        select && (select.value = "");
+        postOwning("");
+      });
+    }
+
+    if (contactSave) {
+      contactSave.addEventListener("click", () => {
+        const name = (contactName && contactName.value || "").trim();
+        const email = (contactEmail && contactEmail.value || "").trim();
+
+        const fd = new FormData();
+        fd.append("action", "prs_update_user_book_meta");
+        fd.append("nonce", PRS_BOOK.nonce);
+        fd.append("user_book_id", String(PRS_BOOK.user_book_id));
+        fd.append("counterparty_name", name);
+        fd.append("counterparty_email", email);
+
+        // No cambiamos owning_status aquí para no alterar el flujo,
+        // solo guardamos contacto (la clase actualiza el loan abierto si aplica).
+        ajaxPost(PRS_BOOK.ajax_url, fd)
+          .then(json => {
+            if (!json || !json.success) throw json;
+            setStatus(contactStatus, "Saved.", true);
+            // Actualiza la vista compacta (no tenemos la fecha del loan, así que solo nombre/email)
+            let v = "";
+            if (name) v += name;
+            if (email) v += (v ? " · " : "") + email;
+            if (contactView) contactView.textContent = v;
+          })
+          .catch(err => {
+            const msg = (err && err.data && err.data.message) ? err.data.message : "Error saving contact.";
+            setStatus(contactStatus, msg, false, 4000);
+          });
+      });
+    }
+  }
+
+  // ---------- Sesiones: render parcial + paginación ----------
+  function setupSessionsAjax() {
+    if (!window.PRS_SESS) return;
+    const box = qs("#prs-sessions-table");
+    if (!box) return;
+
+    function loadSessions(page) {
+      const p = num(page, 1);
+      const fd = new FormData();
+      fd.append("action", "prs_render_sessions");
+      fd.append("nonce", PRS_SESS.nonce);
+      fd.append("book_id", String(PRS_SESS.book_id));
+      fd.append("paged", String(p));
+
+      box.innerHTML = "<p>Loading…</p>";
+
+      ajaxPost(PRS_SESS.ajax_url, fd)
+        .then(json => {
+          if (!json || !json.success) throw json;
+          box.innerHTML = json.data && json.data.html ? json.data.html : "";
+
+          // Actualiza la URL (sin recarga) con ?prs_sess=N
+          try {
+            const url = new URL(window.location.href);
+            url.searchParams.set(PRS_SESS.param, String(json.data.paged || 1));
+            window.history.replaceState({}, "", url.toString());
+          } catch (e) { /* noop */ }
+        })
+        .catch(err => {
+          box.innerHTML = "<p>Error loading sessions.</p>";
+        });
+    }
+
+    // Primer render (usa data-initial-paged si viene en el HTML)
+    const initial = num(box.getAttribute("data-initial-paged"), 1);
+    loadSessions(initial);
+
+    // Delegación de clicks para paginación
+    document.addEventListener("click", function (e) {
+      const link = e.target.closest("a.prs-sess-link");
+      if (!link) return;
+      if (!box.contains(link)) return; // solo enlaces dentro del bloque
+      e.preventDefault();
+      const page = num(link.getAttribute("data-page"), 1);
+      loadSessions(page);
+    });
+  }
+
+  // ---------- Boot ----------
+  document.addEventListener("DOMContentLoaded", function () {
+    setupPages();
+    setupPurchaseDate();
+    setupPurchaseChannel();
+    setupRating();
+    setupReadingStatus();
+    setupOwningStatus();
+    setupSessionsAjax();
+  });
 })();

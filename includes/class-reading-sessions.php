@@ -7,8 +7,11 @@ if ( ! defined( 'ABSPATH' ) ) exit;
 class Politeia_Reading_Sessions {
 
     public static function init() {
-        add_action( 'wp_ajax_prs_start_reading', [ __CLASS__, 'ajax_start' ] );
-        add_action( 'wp_ajax_prs_save_reading',  [ __CLASS__, 'ajax_save' ] );
+        add_action( 'wp_ajax_prs_start_reading',   [ __CLASS__, 'ajax_start' ] );
+        add_action( 'wp_ajax_prs_save_reading',    [ __CLASS__, 'ajax_save' ] );
+
+        // Render parcial (tabla de sesiones + paginación) para AJAX en my-book-single.php
+        add_action( 'wp_ajax_prs_render_sessions', [ __CLASS__, 'ajax_render_sessions' ] );
     }
 
     /* =========================
@@ -323,6 +326,166 @@ class Politeia_Reading_Sessions {
             if ( ! $found ) return false;
         }
         return true;
+    }
+
+    /* =========================
+     * Paginated sessions
+     * ========================= */
+
+    /**
+     * Devuelve sesiones paginadas para (user, book).
+     * @return array { rows:[], total:int, max_pages:int, paged:int, per_page:int }
+     */
+    public static function get_sessions_page( $user_id, $book_id, $per_page = 15, $paged = 1, $only_finished = true ) {
+        global $wpdb;
+        $t = $wpdb->prefix . 'politeia_reading_sessions';
+
+        $user_id   = (int) $user_id;
+        $book_id   = (int) $book_id;
+        $per_page  = max(1, (int) $per_page);
+        $paged     = max(1, (int) $paged);
+        $offset    = ($paged - 1) * $per_page;
+
+        $where = "WHERE user_id=%d AND book_id=%d";
+        $args  = [ $user_id, $book_id ];
+
+        if ( $only_finished ) {
+            $where .= " AND end_time IS NOT NULL";
+        }
+
+        // Total para paginación
+        $total = (int) $wpdb->get_var( $wpdb->prepare(
+            "SELECT COUNT(*) FROM {$t} {$where}",
+            ...$args
+        ) );
+
+        if ( $total === 0 ) {
+            return [
+                'rows'     => [],
+                'total'    => 0,
+                'max_pages'=> 0,
+                'paged'    => $paged,
+                'per_page' => $per_page,
+            ];
+        }
+
+        $max_pages = (int) ceil( $total / $per_page );
+        if ( $paged > $max_pages ) {
+            $paged  = $max_pages;
+            $offset = ($paged - 1) * $per_page;
+        }
+
+        // Traer la página actual (las más recientes primero)
+        $rows = $wpdb->get_results( $wpdb->prepare(
+            "SELECT id, start_time, end_time, start_page, end_page, chapter_name
+             FROM {$t}
+             {$where}
+             ORDER BY COALESCE(end_time, start_time) DESC, id DESC
+             LIMIT %d OFFSET %d",
+            ...array_merge( $args, [ $per_page, $offset ] )
+        ) );
+
+        return [
+            'rows'      => $rows ?: [],
+            'total'     => $total,
+            'max_pages' => $max_pages,
+            'paged'     => $paged,
+            'per_page'  => $per_page,
+        ];
+    }
+
+    /* =========================
+     * AJAX: render parcial de sesiones
+     * ========================= */
+    public static function ajax_render_sessions() {
+        if ( ! is_user_logged_in() ) self::err( 'auth', 401 );
+        if ( ! self::verify_nonce( 'prs_sessions_nonce', [ 'nonce' ] ) ) self::err( 'bad_nonce', 403 );
+
+        $user_id  = get_current_user_id();
+        $book_id  = isset($_POST['book_id']) ? absint($_POST['book_id']) : 0;
+        $paged    = isset($_POST['paged'])   ? max(1, absint($_POST['paged'])) : 1;
+        $per_page = (int) apply_filters( 'politeia_reading_sessions_per_page', 15 );
+
+        if ( ! $book_id ) self::err('invalid_book', 400);
+
+        $data = self::get_sessions_page( $user_id, $book_id, $per_page, $paged, true );
+
+        // HTML tabla
+        $html  = '<table class="prs-table"><thead><tr>';
+        $html .= '<th>' . esc_html__('Start','politeia-reading') . '</th>';
+        $html .= '<th>' . esc_html__('End','politeia-reading') . '</th>';
+        $html .= '<th>' . esc_html__('Duration','politeia-reading') . '</th>';
+        $html .= '<th>' . esc_html__('Start Pg','politeia-reading') . '</th>';
+        $html .= '<th>' . esc_html__('End Pg','politeia-reading') . '</th>';
+        $html .= '<th>' . esc_html__('Pages','politeia-reading') . '</th>';
+        $html .= '<th>' . esc_html__('Chapter','politeia-reading') . '</th>';
+        $html .= '</tr></thead><tbody>';
+
+        $total_seconds = 0; $total_pages_read = 0;
+
+        foreach ( (array) $data['rows'] as $s ) {
+            $start_local = $s->start_time ? get_date_from_gmt( $s->start_time, 'Y-m-d H:i' ) : '—';
+            $end_local   = $s->end_time   ? get_date_from_gmt( $s->end_time,   'Y-m-d H:i' ) : '—';
+
+            $sec = 0;
+            if ( $s->start_time && $s->end_time ) {
+                $sec = max(0, strtotime($s->end_time.' +0 seconds') - strtotime($s->start_time.' +0 seconds'));
+            }
+            $p_start = (int) $s->start_page;
+            $p_end   = (int) $s->end_page;
+            $pages_read = ($p_end >= $p_start) ? ($p_end - $p_start + 1) : 0;
+
+            $total_seconds += $sec;
+            $total_pages_read += $pages_read;
+
+            $html .= '<tr>';
+            $html .= '<td>' . esc_html($start_local) . '</td>';
+            $html .= '<td>' . esc_html($end_local)   . '</td>';
+            $html .= '<td>' . esc_html(self::hms($sec)) . '</td>';
+            $html .= '<td>' . (int)$p_start . '</td>';
+            $html .= '<td>' . (int)$p_end   . '</td>';
+            $html .= '<td>' . (int)$pages_read . '</td>';
+            $html .= '<td>' . ( $s->chapter_name ? esc_html($s->chapter_name) : '—' ) . '</td>';
+            $html .= '</tr>';
+        }
+
+        if ( empty($data['rows']) ) {
+            $html .= '<tr><td colspan="7">' . esc_html__('No sessions yet.','politeia-reading') . '</td></tr>';
+        }
+
+        $html .= '</tbody><tfoot><tr>';
+        $html .= '<th colspan="2" style="text-align:right">' . esc_html__('Totals (this page):','politeia-reading') . '</th>';
+        $html .= '<th>' . esc_html(self::hms($total_seconds)) . '</th>';
+        $html .= '<th></th><th></th>';
+        $html .= '<th>' . (int)$total_pages_read . '</th>';
+        $html .= '<th></th>';
+        $html .= '</tr></tfoot></table>';
+
+        // Paginación con enlaces AJAX (data-page)
+        if ( (int) $data['max_pages'] > 1 ) {
+            $html .= '<nav class="prs-pagination" aria-label="' . esc_attr__('Sessions pagination','politeia-reading') . '"><ul class="page-numbers">';
+            for ( $i = 1; $i <= (int)$data['max_pages']; $i++ ) {
+                if ( $i === (int)$data['paged'] ) {
+                    $html .= '<li><span class="page-numbers current">'.$i.'</span></li>';
+                } else {
+                    $html .= '<li><a href="#" class="page-numbers prs-sess-link" data-page="'.$i.'">'.$i.'</a></li>';
+                }
+            }
+            $html .= '</ul></nav>';
+        }
+
+        self::ok( [
+            'html'      => $html,
+            'paged'     => (int) $data['paged'],
+            'max_pages' => (int) $data['max_pages'],
+        ] );
+    }
+
+    /** Helper: HH:MM:SS */
+    private static function hms( $sec ){
+        $sec = max(0, (int)$sec);
+        $h = floor($sec/3600); $m = floor(($sec%3600)/60); $s = $sec%60;
+        return sprintf('%02d:%02d:%02d', $h, $m, $s);
     }
 
     /* =========================

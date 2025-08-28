@@ -183,3 +183,7 @@ span#purchase-channel-form {
   @media (min-width:481px) and (max-width:900px){ .prs-cover-frame{ max-height:280px; } }
   @media (max-width:480px){ .prs-cover-frame{ max-height:220px; } }
   
+  div#prs-book-info {
+    background: white;
+    border: 1px solid #dddddd;
+}
