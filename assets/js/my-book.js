@@ -371,19 +371,30 @@
     }
   }
 
-  // ---------- Sesiones: render parcial + paginación ----------
+  // ---------- Sesiones: render parcial + paginación + SORTING ----------
   function setupSessionsAjax() {
     if (!window.PRS_SESS) return;
     const box = qs("#prs-sessions-table");
     if (!box) return;
 
-    function loadSessions(page) {
+    // --- NEW: Keep track of sorting state ---
+    let currentOrderby = 'start_time';
+    let currentOrder = 'desc';
+
+    function loadSessions(page, orderby, order) {
       const p = num(page, 1);
+      // Use state variables if new values are not provided
+      const ob = orderby || currentOrderby;
+      const o = order || currentOrder;
+
       const fd = new FormData();
       fd.append("action", "prs_render_sessions");
       fd.append("nonce", PRS_SESS.nonce);
       fd.append("book_id", String(PRS_SESS.book_id));
       fd.append("paged", String(p));
+      // --- NEW: Send sorting data with the request ---
+      fd.append("orderby", ob);
+      fd.append("order", o);
 
       box.innerHTML = "<p>Loading…</p>";
 
@@ -392,32 +403,54 @@
           if (!json || !json.success) throw json;
           box.innerHTML = json.data && json.data.html ? json.data.html : "";
 
-          // Actualiza la URL (sin recarga) con ?prs_sess=N
+          // Update the URL (without reloading) to reflect the current page
           try {
             const url = new URL(window.location.href);
             url.searchParams.set(PRS_SESS.param, String(json.data.paged || 1));
             window.history.replaceState({}, "", url.toString());
           } catch (e) { /* noop */ }
         })
-        .catch(err => {
+        .catch(() => {
           box.innerHTML = "<p>Error loading sessions.</p>";
         });
     }
 
-    // Primer render (usa data-initial-paged si viene en el HTML)
-    const initial = num(box.getAttribute("data-initial-paged"), 1);
-    loadSessions(initial);
+    // Initial render using the page number from the URL if present
+    const initialPage = num(box.getAttribute("data-initial-paged"), 1);
+    loadSessions(initialPage);
 
-    // Delegación de clicks para paginación
-    document.addEventListener("click", function (e) {
-      const link = e.target.closest("a.prs-sess-link");
-      if (!link) return;
-      if (!box.contains(link)) return; // solo enlaces dentro del bloque
-      e.preventDefault();
-      const page = num(link.getAttribute("data-page"), 1);
-      loadSessions(page);
+    // --- NEW: A single event listener for both pagination and sorting ---
+    box.addEventListener("click", function (e) {
+      // Handle pagination clicks
+      const pageLink = e.target.closest("a.prs-sess-link");
+      if (pageLink) {
+        e.preventDefault();
+        const page = num(pageLink.getAttribute("data-page"), 1);
+        loadSessions(page);
+        return; // Stop further processing
+      }
+      
+      // Handle sorting clicks
+      const sortHeader = e.target.closest("th.prs-sortable");
+      if(sortHeader) {
+        e.preventDefault();
+        const newOrderby = sortHeader.getAttribute('data-sort');
+        
+        if (newOrderby === currentOrderby) {
+          // If it's the same column, just flip the direction
+          currentOrder = (currentOrder === 'desc') ? 'asc' : 'desc';
+        } else {
+          // If it's a new column, set it and default to descending
+          currentOrderby = newOrderby;
+          currentOrder = 'desc';
+        }
+        
+        // Fetch the first page with the new sorting applied
+        loadSessions(1, currentOrderby, currentOrder);
+      }
     });
   }
+
 
   // ---------- Boot ----------
   document.addEventListener("DOMContentLoaded", function () {

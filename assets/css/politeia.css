@@ -187,3 +187,41 @@ span#purchase-channel-form {
     background: white;
     border: 1px solid #dddddd;
 }
+
+
+/* --- CORRECTED: Sorting Styles for Reading Sessions Table --- */
+
+/* Make sortable headers look clickable */
+.prs-table th.prs-sortable {
+  cursor: pointer;
+  position: relative;
+  padding-right: 20px; /* Make space for the arrow */
+}
+
+/* Add arrows using pseudo-elements with actual characters */
+.prs-table th.prs-sortable::after {
+  content: '↕'; /* Up-down arrow */
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  opacity: 0.3;
+  transition: opacity 0.2s;
+}
+
+/* Style for active sort headers on hover */
+.prs-table th.prs-sortable:hover::after {
+  opacity: 0.7;
+}
+
+/* Style for the currently sorted column (ASC) */
+.prs-table th.prs-sortable.asc::after {
+  content: '↑'; /* Up arrow */
+  opacity: 1;
+}
+
+/* Style for the currently sorted column (DESC) */
+.prs-table th.prs-sortable.desc::after {
+  content: '↓'; /* Down arrow */
+  opacity: 1;
+}

@@ -336,7 +336,7 @@ class Politeia_Reading_Sessions {
      * Devuelve sesiones paginadas para (user, book).
      * @return array { rows:[], total:int, max_pages:int, paged:int, per_page:int }
      */
-    public static function get_sessions_page( $user_id, $book_id, $per_page = 15, $paged = 1, $only_finished = true ) {
+    public static function get_sessions_page( $user_id, $book_id, $per_page = 15, $paged = 1, $orderby = 'start_time', $order = 'desc', $only_finished = true ) {
         global $wpdb;
         $t = $wpdb->prefix . 'politeia_reading_sessions';
 
@@ -374,13 +374,30 @@ class Politeia_Reading_Sessions {
             $paged  = $max_pages;
             $offset = ($paged - 1) * $per_page;
         }
+        
+        // --- NEW: Dynamic and safe ORDER BY clause ---
+        $order_clause = '';
+        $order_dir = strtolower($order) === 'asc' ? 'ASC' : 'DESC'; // Sanitize direction
 
-        // Traer la página actual (las más recientes primero)
+        switch ( $orderby ) {
+            case 'duration':
+                $order_clause = "ORDER BY (UNIX_TIMESTAMP(end_time) - UNIX_TIMESTAMP(start_time)) {$order_dir}, id DESC";
+                break;
+            case 'pages':
+                $order_clause = "ORDER BY (end_page - start_page + 1) {$order_dir}, id DESC";
+                break;
+            case 'start_time':
+            default:
+                $order_clause = "ORDER BY start_time {$order_dir}, id DESC";
+                break;
+        }
+
+        // Traer la página actual
         $rows = $wpdb->get_results( $wpdb->prepare(
             "SELECT id, start_time, end_time, start_page, end_page, chapter_name
              FROM {$t}
              {$where}
-             ORDER BY COALESCE(end_time, start_time) DESC, id DESC
+             {$order_clause}
              LIMIT %d OFFSET %d",
             ...array_merge( $args, [ $per_page, $offset ] )
         ) );
@@ -405,19 +422,34 @@ class Politeia_Reading_Sessions {
         $book_id  = isset($_POST['book_id']) ? absint($_POST['book_id']) : 0;
         $paged    = isset($_POST['paged'])   ? max(1, absint($_POST['paged'])) : 1;
         $per_page = (int) apply_filters( 'politeia_reading_sessions_per_page', 15 );
+        
+        // --- NEW: Read sorting parameters ---
+        $orderby = isset($_POST['orderby']) ? sanitize_key($_POST['orderby']) : 'start_time';
+        $order   = isset($_POST['order'])   ? sanitize_key($_POST['order'])   : 'desc';
+
 
         if ( ! $book_id ) self::err('invalid_book', 400);
 
-        $data = self::get_sessions_page( $user_id, $book_id, $per_page, $paged, true );
+        // Pass sorting parameters to the get_sessions_page function
+        $data = self::get_sessions_page( $user_id, $book_id, $per_page, $paged, $orderby, $order, true );
+        
+        // --- NEW: Helper function to generate header attributes ---
+        $sort_attrs = function( $key ) use ( $orderby, $order ) {
+            $class = 'prs-sortable';
+            if ( $key === $orderby ) {
+                $class .= ' ' . ($order === 'asc' ? 'asc' : 'desc');
+            }
+            return 'class="' . esc_attr($class) . '" data-sort="' . esc_attr($key) . '"';
+        };
 
-        // HTML tabla
+        // --- UPDATED: HTML table with sortable headers ---
         $html  = '<table class="prs-table"><thead><tr>';
-        $html .= '<th>' . esc_html__('Start','politeia-reading') . '</th>';
+        $html .= '<th ' . $sort_attrs('start_time') . '>' . esc_html__('Start','politeia-reading') . '</th>';
         $html .= '<th>' . esc_html__('End','politeia-reading') . '</th>';
-        $html .= '<th>' . esc_html__('Duration','politeia-reading') . '</th>';
+        $html .= '<th ' . $sort_attrs('duration') . '>' . esc_html__('Duration','politeia-reading') . '</th>';
         $html .= '<th>' . esc_html__('Start Pg','politeia-reading') . '</th>';
         $html .= '<th>' . esc_html__('End Pg','politeia-reading') . '</th>';
-        $html .= '<th>' . esc_html__('Pages','politeia-reading') . '</th>';
+        $html .= '<th ' . $sort_attrs('pages') . '>' . esc_html__('Pages','politeia-reading') . '</th>';
         $html .= '<th>' . esc_html__('Chapter','politeia-reading') . '</th>';
         $html .= '</tr></thead><tbody>';
 
