@@ -7,6 +7,11 @@ class Politeia_Reading_Activator {
         self::create_or_update_tables();
         self::run_migrations();
 
+        // ⬇️ NUEVO: asegura la tabla wp_politeia_post_reading del módulo Post Reading
+        if ( class_exists( 'Politeia_Post_Reading_Schema' ) ) {
+            Politeia_Post_Reading_Schema::migrate();
+        }
+
         if ( get_option( 'politeia_reading_db_version' ) === false ) {
             add_option( 'politeia_reading_db_version', POLITEIA_READING_VERSION );
         } else {
@@ -335,3 +340,7 @@ class Politeia_Reading_Activator {
         }
     }
 }
+
+
+// o mejor:
+add_action( 'plugins_loaded', [ 'Politeia_Post_Reading_Schema', 'maybe_upgrade' ] );
