@@ -29,21 +29,24 @@ if ( $is_logged && class_exists( 'Politeia_Post_Reading_Manager' ) ) {
 
 ?>
 <div class="politeia-post-reading-wrap">
-	<button
-		type="button"
-		class="politeia-post-reading-btn<?php echo esc_attr( $extra_cls ); ?>"
-		data-post-id="<?php echo esc_attr( $post_id ); ?>"
-		<?php echo $disabled_attr; ?>
-	>
-		<?php echo esc_html( $label ); ?>
-	</button>
+  <div class="politeia-post-reading-inner">
+    <button
+      type="button"
+      class="politeia-post-reading-btn<?php echo esc_attr( $extra_cls ); ?>"
+      data-post-id="<?php echo esc_attr( $post_id ); ?>"
+      <?php echo $disabled_attr; ?>
+    >
+      <?php echo esc_html( $label ); ?>
+    </button>
 
-	<?php if ( ! $is_logged ) : ?>
-		<p class="politeia-post-reading-note">
-			<a href="<?php echo esc_url( wp_login_url( get_permalink( $post_id ) ) ); ?>">
-				<?php esc_html_e( 'Log in', 'politeia-reading' ); ?>
-			</a>
-			<?php esc_html_e( 'to track your reading.', 'politeia-reading' ); ?>
-		</p>
-	<?php endif; ?>
+    <?php if ( ! $is_logged ) : ?>
+      <p class="politeia-post-reading-note">
+        <a href="<?php echo esc_url( wp_login_url( get_permalink( $post_id ) ) ); ?>">
+          <?php esc_html_e( 'Log in', 'politeia-reading' ); ?>
+        </a>
+        <?php esc_html_e( 'to track your reading.', 'politeia-reading' ); ?>
+      </p>
+    <?php endif; ?>
+  </div>
 </div>
+

@@ -115,27 +115,27 @@ class Politeia_Post_Reading_Render {
 				$label = __( 'Log in to Start', 'politeia-reading' );
 			}
 
-			ob_start();
-			?>
+			ob_start(); ?>
 			<div class="politeia-post-reading-wrap">
-				<button
+				<div class="politeia-post-reading-inner">
+					<button
 					type="button"
 					class="politeia-post-reading-btn<?php echo esc_attr( $extra_cls ); ?>"
 					<?php echo $is_logged ? '' : 'disabled'; ?>
-				>
+					>
 					<?php echo esc_html( $label ); ?>
-				</button>
-				<?php if ( ! $is_logged ) : ?>
+					</button>
+					<?php if ( ! $is_logged ) : ?>
 					<p class="politeia-post-reading-note">
 						<a href="<?php echo esc_url( wp_login_url( get_permalink( $post_id ) ) ); ?>">
-							<?php esc_html_e( 'Log in', 'politeia-reading' ); ?>
+						<?php esc_html_e( 'Log in', 'politeia-reading' ); ?>
 						</a>
 						<?php esc_html_e( 'to track your reading.', 'politeia-reading' ); ?>
 					</p>
-				<?php endif; ?>
+					<?php endif; ?>
+				</div>
 			</div>
-			<?php
-			return ob_get_clean();
+			<?php return ob_get_clean();
 		}
 
 		// Template override interno del plugin (mantiene modularidad)
