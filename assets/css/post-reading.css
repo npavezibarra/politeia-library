@@ -60,3 +60,33 @@
   padding: 8px 16px;
 }
 */
+
+
+/* ====== PROGRESS BAR (debajo de la barra fija) ====== */
+
+/* Contenedor de la barra (track) */
+.politeia-scroll-progress {
+  display: none;               /* solo visible cuando .is-fixed */
+  width: 100%;
+  height: 2px;
+  background: #e5e7eb;         /* gris claro (track) */
+  pointer-events: none;        /* no bloquea interacciones debajo */
+}
+
+/* Visible solo cuando el wrapper está fijo */
+.politeia-post-reading-wrap.is-fixed .politeia-scroll-progress {
+  display: block;
+}
+
+/* Relleno que avanza */
+.politeia-scroll-progress__bar {
+  width: 0%;
+  height: 100%;
+  background: #facc15;         /* gris medio mientras progresa */
+  transition: width 0.1s linear, background-color 0.2s ease;
+}
+
+/* Al 100%: amarillo */
+.politeia-post-reading-wrap.is-fixed.is-complete .politeia-scroll-progress__bar {
+  background: #facc15;         /* amarillo */
+}
