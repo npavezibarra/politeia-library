@@ -1,21 +1,21 @@
 /* post-reading.css
-   Estilos para el botón Start/Finish Reading + barra fija + progreso de scroll
+	Estilos para el botón Start/Finish Reading + barra fija + progreso de scroll
 */
 
 /* ===== BOTÓN ===== */
 
 .politeia-post-reading-btn {
-  display: inline-block;
-  padding: 10px 18px;
-  margin: 12px 0;
-  background-color: black;
-  color: #fff;
-  font-size: 15px;
-  font-weight: 600;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: background-color 0.2s ease-in-out;
+	display: inline-block;
+	padding: 10px 18px;
+	margin: 12px 0;
+	background-color: black;
+	color: #fff;
+	font-size: 15px;
+	font-weight: 600;
+	border: none;
+	border-radius: 6px;
+	cursor: pointer;
+	transition: background-color 0.2s ease-in-out;
 }
 .politeia-post-reading-btn:hover { background-color: #004999; }
 
@@ -26,60 +26,60 @@
 
 /* Variables del fondo/borde en estado fijo (usadas por el overlay) */
 .politeia-post-reading-wrap {
-  --politeia-fixed-bg: rgba(255,255,255,0.72);
-  --politeia-fixed-border: rgba(0,0,0,.06);
+	--politeia-fixed-bg: rgba(255,255,255,0.72);
+	--politeia-fixed-border: rgba(0,0,0,.06);
 }
 
 /* Estado base (antes de fijarse) */
 .politeia-post-reading-wrap {
-  position: relative;
-  z-index: 50;
-  margin: 0 0 12px;
+	position: relative;
+	z-index: 50;
+	margin: 0 0 12px;
 }
 
 /* Al fijarse: ocupa 100% del ancho de la ventana.
-   El fondo se pinta con ::after (para lograr el fade). */
+	El fondo se pinta con ::after (para lograr el fade). */
 .politeia-post-reading-wrap.is-fixed {
-  position: fixed !important;
-  top: 107px !important;      /* offset bajo tu navbar */
-  left: 0 !important;
-  width: 100% !important;
-  z-index: 1000;
-  box-shadow: none;
-  pointer-events: none;       /* la barra no bloquea clics; el inner sí (abajo) */
+	position: fixed !important;
+	top: 107px !important;      /* offset bajo tu navbar */
+	left: 0 !important;
+	width: 100% !important;
+	z-index: 1000;
+	box-shadow: none;
+	pointer-events: none;       /* la barra no bloquea clics; el inner sí (abajo) */
 }
 
 /* Contenedor interno: alineado a the_content mediante variables seteadas por JS */
 .politeia-post-reading-inner { padding-left: 0; }
 .politeia-post-reading-wrap.is-fixed .politeia-post-reading-inner {
-  margin-left: var(--politeia-fixed-left, 0px);
-  width: var(--politeia-fixed-width, 100%);
-  pointer-events: auto;       /* el botón es clickeable */
-  position: relative;
-  z-index: 1;                 /* por encima del overlay */
+	margin-left: var(--politeia-fixed-left, 0px);
+	width: var(--politeia-fixed-width, 100%);
+	pointer-events: auto;       /* el botón es clickeable */
+	position: relative;
+	z-index: 1;                 /* por encima del overlay */
 }
 
 /* Overlay del fondo con transición suave (fade in/out) */
 .politeia-post-reading-wrap::after {
-  content: "";
-  position: absolute;
-  inset: 0;                   /* cubre toda el área del wrapper */
-  background: var(--politeia-fixed-bg);
-  border-bottom: 1px solid transparent;
-  opacity: 0;                 /* oculto por defecto */
-  transition: opacity .5s ease, border-color .5s ease;
-  pointer-events: none;       /* no bloquea clics */
-  z-index: 0;                 /* detrás del inner y del progress */
+	content: "";
+	position: absolute;
+	inset: 0;                   /* cubre toda el área del wrapper */
+	background: var(--politeia-fixed-bg);
+	border-bottom: 1px solid transparent;
+	opacity: 0;                 /* oculto por defecto */
+	transition: opacity .5s ease, border-color .5s ease;
+	pointer-events: none;       /* no bloquea clics */
+	z-index: 0;                 /* detrás del inner y del progress */
 }
 .politeia-post-reading-wrap.is-fixed::after {
-  opacity: 1;                                   /* <— efecto fade-in */
-  border-bottom-color: var(--politeia-fixed-border);
+	opacity: 1;                                   /* <— efecto fade-in */
+	border-bottom-color: var(--politeia-fixed-border);
 }
 
 /* (Opcional) compactar ligeramente el botón cuando está fijo */
 /*
 .politeia-post-reading-wrap.is-fixed .politeia-post-reading-btn {
-  padding: 8px 16px;
+	padding: 8px 16px;
 }
 */
 
@@ -87,33 +87,33 @@
 
 /* Track (contenedor) — aparece solo cuando el wrapper está fijo */
 .politeia-scroll-progress {
-  display: none;
-  width: 100%;
-  height: 3px;
-  background: #e5e7eb;        /* gris claro */
-  pointer-events: none;       /* no bloquea interacciones debajo */
-  position: relative;
-  z-index: 1;                 /* sobre el overlay */
+	display: none;
+	width: 100%;
+	height: 3px;
+	background: #e5e7eb;        /* gris claro */
+	pointer-events: none;       /* no bloquea interacciones debajo */
+	position: relative;
+	z-index: 1;                 /* sobre el overlay */
 }
 .politeia-post-reading-wrap.is-fixed .politeia-scroll-progress {
-  display: block;
+	display: block;
 }
 
 /* Relleno que avanza */
 .politeia-scroll-progress__bar {
-  width: 0%;
-  height: 100%;
-  background: #facc15;        /* gris medio mientras progresa */
-  transition: width 0.1s linear, background-color 0.2s ease;
+	width: 0%;
+	height: 100%;
+	background: #facc15;        /* gris medio mientras progresa */
+	transition: width 0.1s linear, background-color 0.2s ease;
 }
 
 /* Al 100% cambia a amarillo */
 .politeia-post-reading-wrap.is-fixed.is-complete .politeia-scroll-progress__bar {
-  background: #facc15;        /* amarillo */
+	background: #facc15;        /* amarillo */
 }
 
 /* Spacer para evitar el salto cuando el wrapper pasa a fixed */
 .politeia-post-reading-spacer{
-  height: 0;
-  transition: height .2s ease; /* pequeña suavidad al activar */
+	height: 0;
+	transition: height .2s ease; /* pequeña suavidad al activar */
 }

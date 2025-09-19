@@ -1,103 +1,103 @@
 /* Overlay */
 .prs-cover-modal{
-  position: fixed; inset: 0;
-  background: rgba(0,0,0,.5);
-  z-index: 100000;
-  display: grid;
-  place-items: center; /* centra todo el panel */
+	position: fixed; inset: 0;
+	background: rgba(0,0,0,.5);
+	z-index: 100000;
+	display: grid;
+	place-items: center; /* centra todo el panel */
 }
 
 .prs-cover-modal__content{
-  background: #fff;
-  border-radius: 12px;
-  width: 720px;
-  max-width: calc(100vw - 32px);
-  max-height: calc(100vh - 32px);
-  display: flex;
-  flex-direction: column;
-  padding: 16px;
-  box-shadow: 0 10px 30px rgba(0,0,0,.2);
+	background: #fff;
+	border-radius: 12px;
+	width: 720px;
+	max-width: calc(100vw - 32px);
+	max-height: calc(100vh - 32px);
+	display: flex;
+	flex-direction: column;
+	padding: 16px;
+	box-shadow: 0 10px 30px rgba(0,0,0,.2);
 }
 
 /* Título + barra superior */
 .prs-cover-modal__title{
-  font-size: 20px;
-  font-weight: 700;
-  margin-bottom: 10px;
+	font-size: 20px;
+	font-weight: 700;
+	margin-bottom: 10px;
 }
 .prs-cover-modal__topbar{
-  display: flex;
-  align-items: center;
-  gap: 12px;
+	display: flex;
+	align-items: center;
+	gap: 12px;
 }
 
 /* Stage centrado y más pequeño (280x450) */
 .prs-crop-wrap{
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  padding: 12px 0;
+	display: flex;
+	justify-content: center;
+	align-items: center;
+	padding: 12px 0;
 }
 .prs-crop-stage{
-  position: relative;
-  background: #111;
-  border-radius: 12px;
-  overflow: hidden;
+	position: relative;
+	background: #111;
+	border-radius: 12px;
+	overflow: hidden;
 }
 
 /* La imagen se centra y se escala desde el centro */
 .prs-crop-img{
-  position: absolute;
-  width: 100% !important;
-  height: auto !important;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%,-50%) scale(1);
-  will-change: transform;
-  image-rendering: auto;
+	position: absolute;
+	width: 100% !important;
+	height: auto !important;
+	left: 50%;
+	top: 50%;
+	transform: translate(-50%,-50%) scale(1);
+	will-change: transform;
+	image-rendering: auto;
 }
 
 /* Controles siempre visibles (sin scroll) */
 .prs-crop-controls{
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 12px;
-  margin: 8px 0 0;
+	display: flex;
+	align-items: center;
+	justify-content: center;
+	gap: 12px;
+	margin: 8px 0 0;
 }
 .prs-crop-label{ color:#444; font-size:14px; }
 .prs-crop-slider{ width: 340px; }
 
 /* Footer */
 .prs-cover-modal__footer{
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 10px;
-  margin-top: 10px;
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	gap: 10px;
+	margin-top: 10px;
 }
 .prs-cover-status{
-  margin-right: auto;
-  color: #666;
-  font-size: 12px;
+	margin-right: auto;
+	color: #666;
+	font-size: 12px;
 }
 
 /* Botón del overlay sobre la portada */
 .prs-cover-btn{
-  padding: 8px 14px;
-  background: #222;
-  color: #fff;
-  border-radius: 10px;
-  border: none;
-  cursor: pointer;
+	padding: 8px 14px;
+	background: #222;
+	color: #fff;
+	border-radius: 10px;
+	border: none;
+	cursor: pointer;
 }
 .prs-cover-btn:hover{ background:#000; }
 
 /* Botón base ya usado en tu tema */
 .prs-btn{
-  background:#111; color:#fff; border:none; border-radius:10px;
-  padding:8px 14px; cursor:pointer;
+	background:#111; color:#fff; border:none; border-radius:10px;
+	padding:8px 14px; cursor:pointer;
 }
 .prs-btn--ghost{
-  background:#eee; color:#111;
+	background:#eee; color:#111;
 }

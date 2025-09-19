@@ -3,7 +3,9 @@
  * Render del botón Start/Finish Reading para posts regulares
  */
 
-if ( ! defined( 'ABSPATH' ) ) exit;
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
 
 class Politeia_Post_Reading_Render {
 
@@ -11,8 +13,8 @@ class Politeia_Post_Reading_Render {
 	const STYLE_HANDLE  = 'politeia-post-reading-css';
 
 	public static function init() {
-		add_action( 'wp_enqueue_scripts', [ __CLASS__, 'enqueue_if_needed' ] );
-		add_filter( 'the_content', [ __CLASS__, 'inject_button_into_content' ] );
+		add_action( 'wp_enqueue_scripts', array( __CLASS__, 'enqueue_if_needed' ) );
+		add_filter( 'the_content', array( __CLASS__, 'inject_button_into_content' ) );
 	}
 
 	/** ¿Debemos renderizar en esta vista? */
@@ -22,28 +24,30 @@ class Politeia_Post_Reading_Render {
 
 	/** Encola assets y pasa datos al JS cuando corresponde */
 	public static function enqueue_if_needed() {
-		if ( ! self::should_render() ) return;
+		if ( ! self::should_render() ) {
+			return;
+		}
 
 		// URLs de assets (usa la constante del plugin; fallback defensivo si no existe)
-		$base_url   = defined('POLITEIA_READING_URL')
+		$base_url   = defined( 'POLITEIA_READING_URL' )
 			? POLITEIA_READING_URL
-			: trailingslashit( plugins_url( '', dirname( __FILE__, 2 ) ) );
+			: trailingslashit( plugins_url( '', dirname( __DIR__, 1 ) ) );
 		$assets_url = $base_url . 'assets/';
 
 		// CSS
 		wp_enqueue_style(
 			self::STYLE_HANDLE,
 			$assets_url . 'css/post-reading.css',
-			[],
-			defined('POLITEIA_READING_VERSION') ? POLITEIA_READING_VERSION : '1.0.0'
+			array(),
+			defined( 'POLITEIA_READING_VERSION' ) ? POLITEIA_READING_VERSION : '1.0.0'
 		);
 
 		// JS (sin dependencias; usa fetch nativo)
 		wp_enqueue_script(
 			self::SCRIPT_HANDLE,
 			$assets_url . 'js/post-reading.js',
-			[],
-			defined('POLITEIA_READING_VERSION') ? POLITEIA_READING_VERSION : '1.0.0',
+			array(),
+			defined( 'POLITEIA_READING_VERSION' ) ? POLITEIA_READING_VERSION : '1.0.0',
 			true
 		);
 
@@ -54,7 +58,10 @@ class Politeia_Post_Reading_Render {
 		$nonce    = wp_create_nonce( 'wp_rest' );
 
 		// Estado inicial y "ya completó" (si está logueado)
-		$initial       = [ 'status' => 'finished', 'row' => null ];
+		$initial       = array(
+			'status' => 'finished',
+			'row'    => null,
+		);
 		$has_completed = false;
 
 		if ( $user_id && class_exists( 'Politeia_Post_Reading_Manager' ) && $post_id ) {
@@ -62,20 +69,26 @@ class Politeia_Post_Reading_Render {
 			$has_completed = Politeia_Post_Reading_Manager::has_completed( $user_id, $post_id );
 		}
 
-		wp_localize_script( self::SCRIPT_HANDLE, 'politeiaPostReading', [
-			'postId'       => (int) $post_id,
-			'nonce'        => $nonce,
-			'restUrl'      => $rest_url,
-			'isLoggedIn'   => (bool) $user_id,
-			'initial'      => $initial,          // { status: started|finished, row: {...}|null }
-			'hasCompleted' => (bool) $has_completed, // true si el usuario ya tiene alguna sesión cerrada
-			'loginUrl'     => wp_login_url( get_permalink( $post_id ) ),
-		] );
+		wp_localize_script(
+			self::SCRIPT_HANDLE,
+			'politeiaPostReading',
+			array(
+				'postId'       => (int) $post_id,
+				'nonce'        => $nonce,
+				'restUrl'      => $rest_url,
+				'isLoggedIn'   => (bool) $user_id,
+				'initial'      => $initial,          // { status: started|finished, row: {...}|null }
+				'hasCompleted' => (bool) $has_completed, // true si el usuario ya tiene alguna sesión cerrada
+				'loginUrl'     => wp_login_url( get_permalink( $post_id ) ),
+			)
+		);
 	}
 
 	/** Inyecta el botón ANTES del contenido del post */
 	public static function inject_button_into_content( $content ) {
-		if ( ! self::should_render() ) return $content;
+		if ( ! self::should_render() ) {
+			return $content;
+		}
 
 		$html = self::get_button_markup();
 
@@ -88,7 +101,7 @@ class Politeia_Post_Reading_Render {
 	 * Si existe un template en templates/post-reading/button.php lo usa; si no, usa fallback.
 	 */
 	protected static function get_button_markup() {
-		$template = trailingslashit( defined('POLITEIA_READING_PATH') ? POLITEIA_READING_PATH : plugin_dir_path( dirname( __FILE__, 2 ) ) ) . 'templates/post-reading/button.php';
+		$template = trailingslashit( defined( 'POLITEIA_READING_PATH' ) ? POLITEIA_READING_PATH : plugin_dir_path( dirname( __DIR__, 1 ) ) ) . 'templates/post-reading/button.php';
 
 		// Variables útiles por si el template las quiere leer
 		$post_id   = get_queried_object_id();
@@ -135,7 +148,8 @@ class Politeia_Post_Reading_Render {
 					<?php endif; ?>
 				</div>
 			</div>
-			<?php return ob_get_clean();
+			<?php
+			return ob_get_clean();
 		}
 
 		// Template override interno del plugin (mantiene modularidad)
@@ -146,4 +160,4 @@ class Politeia_Post_Reading_Render {
 }
 
 // Auto-init del render al cargar el módulo
-add_action( 'init', [ 'Politeia_Post_Reading_Render', 'init' ] );
+add_action( 'init', array( 'Politeia_Post_Reading_Render', 'init' ) );

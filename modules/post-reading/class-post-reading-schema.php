@@ -10,13 +10,15 @@
  * - updated_at (datetime)
  */
 
-if ( ! defined( 'ABSPATH' ) ) exit;
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
 
 class Politeia_Post_Reading_Schema {
 
 	/** @var string */
 	protected static $version_option = 'politeia_post_reading_schema_version';
-    protected static $version = '1.0.2';
+	protected static $version        = '1.0.2';
 
 
 	/** Nombre de la tabla */
@@ -29,7 +31,7 @@ class Politeia_Post_Reading_Schema {
 	public static function migrate() {
 		global $wpdb;
 
-		$table_name = self::table();
+		$table_name      = self::table();
 		$charset_collate = $wpdb->get_charset_collate();
 
 		require_once ABSPATH . 'wp-admin/includes/upgrade.php';
@@ -48,16 +50,19 @@ class Politeia_Post_Reading_Schema {
 			KEY user_post (user_id, post_id)
 		) {$charset_collate};";
 
-        dbDelta( $sql );
+		dbDelta( $sql );
 
-        // Refuerzos porque dbDelta a veces ignora defaults/ON UPDATE en DATETIME
-        $wpdb->query( "ALTER TABLE {$table_name}
-        MODIFY created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP" );
-        $wpdb->query( "ALTER TABLE {$table_name}
-        MODIFY updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP" );
+		// Refuerzos porque dbDelta a veces ignora defaults/ON UPDATE en DATETIME
+		$wpdb->query(
+			"ALTER TABLE {$table_name}
+        MODIFY created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP"
+		);
+		$wpdb->query(
+			"ALTER TABLE {$table_name}
+        MODIFY updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"
+		);
 
-        update_option( self::$version_option, self::$version );
-
+		update_option( self::$version_option, self::$version );
 	}
 
 	/** Hook para actualizar en upgrades del plugin */

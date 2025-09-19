@@ -8,184 +8,184 @@
 .prs-notice--error   { border:1px solid #f3b1b1; background:#fdecec; }
 
 .prs-book-fixed {
-    display: none;
+	display: none;
 }
 
 /* Inline contact form under Owning Status */
 .prs-contact-form{
-    display: grid;
-    grid-template-columns: 120px minmax(240px, 1fr);
-    gap: 10px 12px;               /* row-gap / column-gap */
-    max-width: 600px;
-    margin: 10px 0 0 10px;
-  }
-  .prs-contact-label{
-    align-self: center;
-    font-weight: 600;
-  }
-  .prs-contact-input{
-    width: 100%;
-  }
-  .prs-contact-actions{
-    grid-column: 2;               /* tercera fila, bajo los inputs */
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-  .prs-contact-status{ color:#555; }
-  
-  /* Responsive: apilar en mobile */
-  @media (max-width: 720px){
-    .prs-contact-form{
-      grid-template-columns: 1fr;
-      margin-left: 0;
-    }
-    .prs-contact-actions{
-      grid-column: 1;
-    }
-  }
+	display: grid;
+	grid-template-columns: 120px minmax(240px, 1fr);
+	gap: 10px 12px;               /* row-gap / column-gap */
+	max-width: 600px;
+	margin: 10px 0 0 10px;
+	}
+	.prs-contact-label{
+	align-self: center;
+	font-weight: 600;
+	}
+	.prs-contact-input{
+	width: 100%;
+	}
+	.prs-contact-actions{
+	grid-column: 2;               /* tercera fila, bajo los inputs */
+	display: flex;
+	align-items: center;
+	gap: 10px;
+	}
+	.prs-contact-status{ color:#555; }
+
+	/* Responsive: apilar en mobile */
+	@media (max-width: 720px){
+	.prs-contact-form{
+		grid-template-columns: 1fr;
+		margin-left: 0;
+	}
+	.prs-contact-actions{
+		grid-column: 1;
+	}
+	}
 
 button#owning-contact-save {
-    margin-top: 15px;
+	margin-top: 15px;
 }
 
 span#purchase-channel-form {
-    margin: 0px;
+	margin: 0px;
 }
 
 #purchase-channel-form>div {
-  margin-bottom:5px;
+	margin-bottom:5px;
 }
 
 
 /* Container */
 .prs-stars {
-  display: inline-flex;
-  gap: 4px;
-  user-select: none;
-  -webkit-tap-highlight-color: transparent; /* mobile: no blue flash */
+	display: inline-flex;
+	gap: 4px;
+	user-select: none;
+	-webkit-tap-highlight-color: transparent; /* mobile: no blue flash */
 }
 
 /* Full reset so no theme/UA button styles sneak in */
 .prs-star {
-  all: unset;                 /* wipe default <button> styles */
-  display: inline-block;
-  padding: 0 2px;
-  font-size: 22px;
-  line-height: 1;
-  color: #bbb;                /* inactive */
-  cursor: pointer;
+	all: unset;                 /* wipe default <button> styles */
+	display: inline-block;
+	padding: 0 2px;
+	font-size: 22px;
+	line-height: 1;
+	color: #bbb;                /* inactive */
+	cursor: pointer;
 
-  /* extra belts & suspenders for stubborn browsers */
-  background: transparent !important;
-  border: none !important;
-  box-shadow: none !important;
-  border-radius: 0 !important;
-  -webkit-appearance: none;
-  appearance: none;
+	/* extra belts & suspenders for stubborn browsers */
+	background: transparent !important;
+	border: none !important;
+	box-shadow: none !important;
+	border-radius: 0 !important;
+	-webkit-appearance: none;
+	appearance: none;
 }
 
 /* Active (filled) star */
 .prs-star.is-active {
-  color: #f5b301;             /* yellow */
+	color: #f5b301;             /* yellow */
 }
 
 /* Accessible focus without blue background */
 .prs-star:focus,
 .prs-star:active,
 .prs-star:focus-visible {
-  background: transparent !important;
-  box-shadow: none !important;
+	background: transparent !important;
+	box-shadow: none !important;
 }
 
 .prs-star:focus-visible {
-  outline: 2px solid currentColor;
-  outline-offset: 2px;
+	outline: 2px solid currentColor;
+	outline-offset: 2px;
 }
 
 
-  .prs-sr-table{ width:100%; border-collapse:collapse; background:#fff; }
-  .prs-sr-table th, .prs-sr-table td{ padding:10px; border:1px solid #ddd; text-align:left; vertical-align:middle; }
-  .prs-sr-table th{ width:40%; background:#f6f6f6; }
-  .prs-sr-input{ width:100%; box-sizing:border-box; }
-  .prs-sr-row--full td{ text-align:center; }
-  .prs-sr-timer{ font-size:24px; font-weight:600; padding:12px 0; }
+	.prs-sr-table{ width:100%; border-collapse:collapse; background:#fff; }
+	.prs-sr-table th, .prs-sr-table td{ padding:10px; border:1px solid #ddd; text-align:left; vertical-align:middle; }
+	.prs-sr-table th{ width:40%; background:#f6f6f6; }
+	.prs-sr-input{ width:100%; box-sizing:border-box; }
+	.prs-sr-row--full td{ text-align:center; }
+	.prs-sr-timer{ font-size:24px; font-weight:600; padding:12px 0; }
 
-  .prs-btn{ padding:10px 14px; background:#111; color:#fff; border:none; cursor:pointer; }
-  .prs-btn[disabled]{ opacity:.4; cursor:not-allowed; }
+	.prs-btn{ padding:10px 14px; background:#111; color:#fff; border:none; cursor:pointer; }
+	.prs-btn[disabled]{ opacity:.4; cursor:not-allowed; }
 
-  /* Right-align all action rows */
-  .prs-sr-actions{
-    display:flex;
-    align-items:center;
-    justify-content:flex-end;   /* ← right */
-    gap:10px;
-  }
-  /* Status label floats to the left side of the row */
-  .prs-sr-actions .prs-sr-status{
-    order:-1;                   /* move first */
-    margin-right:auto;          /* push buttons to right */
-    font-size:12px; color:#666;
-  }
+	/* Right-align all action rows */
+	.prs-sr-actions{
+	display:flex;
+	align-items:center;
+	justify-content:flex-end;   /* ← right */
+	gap:10px;
+	}
+	/* Status label floats to the left side of the row */
+	.prs-sr-actions .prs-sr-status{
+	order:-1;                   /* move first */
+	margin-right:auto;          /* push buttons to right */
+	font-size:12px; color:#666;
+	}
 
-  /* Make the Start/Stop rows use a single full-width cell (already true) */
+	/* Make the Start/Stop rows use a single full-width cell (already true) */
 
-  .prs-sr-actions{
-    display:flex;
-    align-items:center;
-    justify-content:flex-end; /* derecha */
-    gap:10px;
-  }
-  .prs-sr-actions .prs-sr-status{
-    order:-1;                 /* mensaje a la izquierda */
-    margin-right:auto;
-    font-size:12px; color:#666;
-  }
-  
+	.prs-sr-actions{
+	display:flex;
+	align-items:center;
+	justify-content:flex-end; /* derecha */
+	gap:10px;
+	}
+	.prs-sr-actions .prs-sr-status{
+	order:-1;                 /* mensaje a la izquierda */
+	margin-right:auto;
+	font-size:12px; color:#666;
+	}
 
-  /* BOOK COVER MY BOOK SINGLE */
 
-  #prs-book-cover{ grid-column:1; grid-row:1 / span 2; padding:0; background:transparent; }
+	/* BOOK COVER MY BOOK SINGLE */
 
-  .prs-cover-frame{
-    position: relative;
-    width: 100%;
-    max-height: 450px; /* desktop */
-    overflow: hidden;
-    border-radius: 10px;
-    background: #eee;
-  }
-  .prs-cover-img{ width:100%; height:100%; object-fit:cover; display:block; }
-  .prs-cover-placeholder{ width:100%; height:100%; min-height:180px; background:#eee; }
-  
-  /* Botón centrado dentro del frame */
-  .prs-cover-overlay{
-    position:absolute; inset:0;
-    display:flex; align-items:center; justify-content:center;
-    pointer-events:auto; /* ← así los botones siempre reciben el click */
-  }
-  #prs-cover-upload{
-    pointer-events:auto;
-    padding:10px 14px; border:none; border-radius:10px; cursor:pointer;
-    background:#111; color:#fff; box-shadow:none; outline:none;
-  }
-  #prs-cover-remove{
-    pointer-events:auto;
-    padding:10px 14px; border:none; border-radius:10px; cursor:pointer;
-    background:#777; color:#fff; box-shadow:none; outline:none; margin-left:8px;
-  }
-  
-  /* Mostrar overlay siempre si no hay imagen; o solo al hover si hay imagen */
-  .prs-cover-frame.has-image .prs-cover-overlay{ opacity:0; transition:opacity .2s; }
-  .prs-cover-frame.has-image:hover .prs-cover-overlay{ opacity:1; background:rgba(0,0,0,.25); }
-  
-  /* Tablet / Mobile max-heights */
-  @media (min-width:481px) and (max-width:900px){ .prs-cover-frame{ max-height:280px; } }
-  @media (max-width:480px){ .prs-cover-frame{ max-height:220px; } }
-  
-  div#prs-book-info {
-    background: white;
-    border: 1px solid #dddddd;
+	#prs-book-cover{ grid-column:1; grid-row:1 / span 2; padding:0; background:transparent; }
+
+	.prs-cover-frame{
+	position: relative;
+	width: 100%;
+	max-height: 450px; /* desktop */
+	overflow: hidden;
+	border-radius: 10px;
+	background: #eee;
+	}
+	.prs-cover-img{ width:100%; height:100%; object-fit:cover; display:block; }
+	.prs-cover-placeholder{ width:100%; height:100%; min-height:180px; background:#eee; }
+
+	/* Botón centrado dentro del frame */
+	.prs-cover-overlay{
+	position:absolute; inset:0;
+	display:flex; align-items:center; justify-content:center;
+	pointer-events:auto; /* ← así los botones siempre reciben el click */
+	}
+	#prs-cover-upload{
+	pointer-events:auto;
+	padding:10px 14px; border:none; border-radius:10px; cursor:pointer;
+	background:#111; color:#fff; box-shadow:none; outline:none;
+	}
+	#prs-cover-remove{
+	pointer-events:auto;
+	padding:10px 14px; border:none; border-radius:10px; cursor:pointer;
+	background:#777; color:#fff; box-shadow:none; outline:none; margin-left:8px;
+	}
+
+	/* Mostrar overlay siempre si no hay imagen; o solo al hover si hay imagen */
+	.prs-cover-frame.has-image .prs-cover-overlay{ opacity:0; transition:opacity .2s; }
+	.prs-cover-frame.has-image:hover .prs-cover-overlay{ opacity:1; background:rgba(0,0,0,.25); }
+
+	/* Tablet / Mobile max-heights */
+	@media (min-width:481px) and (max-width:900px){ .prs-cover-frame{ max-height:280px; } }
+	@media (max-width:480px){ .prs-cover-frame{ max-height:220px; } }
+
+	div#prs-book-info {
+	background: white;
+	border: 1px solid #dddddd;
 }
 
 
@@ -193,35 +193,35 @@ span#purchase-channel-form {
 
 /* Make sortable headers look clickable */
 .prs-table th.prs-sortable {
-  cursor: pointer;
-  position: relative;
-  padding-right: 20px; /* Make space for the arrow */
+	cursor: pointer;
+	position: relative;
+	padding-right: 20px; /* Make space for the arrow */
 }
 
 /* Add arrows using pseudo-elements with actual characters */
 .prs-table th.prs-sortable::after {
-  content: '↕'; /* Up-down arrow */
-  position: absolute;
-  right: 8px;
-  top: 50%;
-  transform: translateY(-50%);
-  opacity: 0.3;
-  transition: opacity 0.2s;
+	content: '↕'; /* Up-down arrow */
+	position: absolute;
+	right: 8px;
+	top: 50%;
+	transform: translateY(-50%);
+	opacity: 0.3;
+	transition: opacity 0.2s;
 }
 
 /* Style for active sort headers on hover */
 .prs-table th.prs-sortable:hover::after {
-  opacity: 0.7;
+	opacity: 0.7;
 }
 
 /* Style for the currently sorted column (ASC) */
 .prs-table th.prs-sortable.asc::after {
-  content: '↑'; /* Up arrow */
-  opacity: 1;
+	content: '↑'; /* Up arrow */
+	opacity: 1;
 }
 
 /* Style for the currently sorted column (DESC) */
 .prs-table th.prs-sortable.desc::after {
-  content: '↓'; /* Down arrow */
-  opacity: 1;
+	content: '↓'; /* Down arrow */
+	opacity: 1;
 }

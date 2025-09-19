@@ -5,7 +5,9 @@
  * - Mantiene a lo sumo un registro “abierto” (sin end_time) por (user_id, post_id)
  */
 
-if ( ! defined( 'ABSPATH' ) ) exit;
+if ( ! defined( 'ABSPATH' ) ) {
+	exit;
+}
 
 class Politeia_Post_Reading_Manager {
 
@@ -114,8 +116,8 @@ class Politeia_Post_Reading_Manager {
 			);
 		}
 
-		$now   = current_time( 'mysql' );
-		$ok    = $wpdb->update(
+		$now = current_time( 'mysql' );
+		$ok  = $wpdb->update(
 			$table,
 			array( 'end_time' => $now ),
 			array( 'id' => (int) $open->id ),
@@ -162,16 +164,16 @@ class Politeia_Post_Reading_Manager {
 
 	public static function has_completed( $user_id, $post_id ) {
 		global $wpdb;
-		$table = self::table();
+		$table  = self::table();
 		$exists = $wpdb->get_var(
 			$wpdb->prepare(
 				"SELECT 1 FROM {$table} 
 				 WHERE user_id = %d AND post_id = %d AND end_time IS NOT NULL 
 				 LIMIT 1",
-				$user_id, $post_id
+				$user_id,
+				$post_id
 			)
 		);
 		return (bool) $exists;
 	}
-	
 }

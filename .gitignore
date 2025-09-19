@@ -1,0 +1,8 @@
+# Composer
+/vendor/
+
+# MacOS
+.DS_Store
+
+# Node (si en el futuro agregamos ESLint)
+node_modules/
